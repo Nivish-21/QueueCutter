@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "QueueCutter"
+version = "1.0.0"
+id = "artifacts/queue-cutter"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 21664
+
+[services.development]
+run = "pnpm --filter @workspace/queue-cutter run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/queue-cutter", "run", "build" ]
+publicDir = "artifacts/queue-cutter/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21664"
+BASE_PATH = "/"

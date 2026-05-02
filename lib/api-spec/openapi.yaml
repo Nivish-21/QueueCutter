@@ -3,13 +3,17 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: QueueCutter API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: forms
+    description: Form catalog operations
+  - name: sessions
+    description: Guided interview sessions
 paths:
   /healthz:
     get:
@@ -24,6 +28,287 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /forms:
+    get:
+      operationId: listForms
+      tags: [forms]
+      summary: List available forms
+      description: Returns the catalog of supported government forms
+      responses:
+        "200":
+          description: List of forms
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  forms:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/FormSummary"
+                required: [forms]
+
+  /forms/{formId}:
+    get:
+      operationId: getForm
+      tags: [forms]
+      summary: Get form details
+      description: Returns full form schema including questions and field mappings
+      parameters:
+        - name: formId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Form details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FormDetail"
+        "404":
+          description: Form not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sessions:
+    get:
+      operationId: listSessions
+      tags: [sessions]
+      summary: List recent sessions
+      description: Returns recent form sessions for the current user
+      responses:
+        "200":
+          description: List of sessions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SessionSummary"
+                required: [sessions]
+
+    post:
+      operationId: createSession
+      tags: [sessions]
+      summary: Create a new session
+      description: Starts a new guided interview session for a form
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSessionBody"
+      responses:
+        "201":
+          description: Session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sessions/{sessionId}:
+    get:
+      operationId: getSession
+      tags: [sessions]
+      summary: Get session state
+      description: Returns the current state of a form session including answers
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Session state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "404":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sessions/{sessionId}/answers:
+    put:
+      operationId: updateAnswers
+      tags: [sessions]
+      summary: Update session answers
+      description: Saves answers for the current step and advances the session
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAnswersBody"
+      responses:
+        "200":
+          description: Updated session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "404":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sessions/{sessionId}/preview:
+    get:
+      operationId: getPreview
+      tags: [sessions]
+      summary: Get field preview
+      description: Returns mapped form fields from the user answers
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Field preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PreviewResult"
+        "404":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sessions/{sessionId}/warnings:
+    get:
+      operationId: getWarnings
+      tags: [sessions]
+      summary: Get session warnings
+      description: Returns warnings for missing, inconsistent, or risky answers
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Warnings list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WarningsResult"
+        "404":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sessions/{sessionId}/checklist:
+    get:
+      operationId: getChecklist
+      tags: [sessions]
+      summary: Get document checklist
+      description: Returns required documents and submission steps for the form
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Checklist
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChecklistResult"
+        "404":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sessions/{sessionId}/pdf:
+    post:
+      operationId: generatePdf
+      tags: [sessions]
+      summary: Generate filled PDF
+      description: Generates and returns a filled PDF for the session
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: PDF generation result with download URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PdfResult"
+        "404":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sessions/{sessionId}/pdf/download:
+    get:
+      operationId: downloadPdf
+      tags: [sessions]
+      summary: Download generated PDF
+      description: Downloads the generated PDF file for a session
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: PDF file
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Session or PDF not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -31,6 +316,315 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+      required: [error, message]
+
+    FormSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        shortDescription:
+          type: string
+        whoItIsFor:
+          type: string
+        estimatedMinutes:
+          type: integer
+        questionCount:
+          type: integer
+        category:
+          type: string
+      required: [id, name, shortDescription, whoItIsFor, estimatedMinutes, questionCount, category]
+
+    FormQuestion:
+      type: object
+      properties:
+        id:
+          type: string
+        text:
+          type: string
+        hint:
+          type: string
+        type:
+          type: string
+          enum: [text, date, select, radio, number, textarea, yesno]
+        options:
+          type: array
+          items:
+            type: string
+        required:
+          type: boolean
+        fieldMapping:
+          type: string
+        validationPattern:
+          type: string
+        conditionalOn:
+          type: object
+          properties:
+            questionId:
+              type: string
+            value:
+              type: string
+          required: [questionId, value]
+      required: [id, text, type, required, fieldMapping]
+
+    FormDetail:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        officialName:
+          type: string
+        shortDescription:
+          type: string
+        longDescription:
+          type: string
+        whoItIsFor:
+          type: string
+        category:
+          type: string
+        requiredDocuments:
+          type: array
+          items:
+            type: string
+        questions:
+          type: array
+          items:
+            $ref: "#/components/schemas/FormQuestion"
+        submissionOffice:
+          type: string
+        processingTime:
+          type: string
+        fee:
+          type: string
+        disclaimer:
+          type: string
+      required: [id, name, officialName, shortDescription, longDescription, whoItIsFor, category, requiredDocuments, questions, submissionOffice, processingTime, fee, disclaimer]
+
+    SessionStatus:
+      type: string
+      enum: [in_progress, completed, abandoned]
+
+    Session:
+      type: object
+      properties:
+        id:
+          type: string
+        formId:
+          type: string
+        formName:
+          type: string
+        status:
+          $ref: "#/components/schemas/SessionStatus"
+        currentStep:
+          type: integer
+        totalSteps:
+          type: integer
+        answers:
+          type: object
+          additionalProperties:
+            type: string
+        completionPercent:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, formId, formName, status, currentStep, totalSteps, answers, completionPercent, createdAt, updatedAt]
+
+    SessionSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        formId:
+          type: string
+        formName:
+          type: string
+        status:
+          $ref: "#/components/schemas/SessionStatus"
+        completionPercent:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, formId, formName, status, completionPercent, createdAt, updatedAt]
+
+    CreateSessionBody:
+      type: object
+      properties:
+        formId:
+          type: string
+      required: [formId]
+
+    UpdateAnswersBody:
+      type: object
+      properties:
+        answers:
+          type: object
+          additionalProperties:
+            type: string
+        step:
+          type: integer
+      required: [answers, step]
+
+    MappedField:
+      type: object
+      properties:
+        fieldName:
+          type: string
+        officialLabel:
+          type: string
+        value:
+          type: string
+        source:
+          type: string
+          enum: [user_answer, inferred, default]
+        confidence:
+          type: string
+          enum: [high, medium, low]
+        isEmpty:
+          type: boolean
+      required: [fieldName, officialLabel, value, source, confidence, isEmpty]
+
+    PreviewResult:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        formName:
+          type: string
+        mappedFields:
+          type: array
+          items:
+            $ref: "#/components/schemas/MappedField"
+        completionPercent:
+          type: integer
+        missingCount:
+          type: integer
+        warningCount:
+          type: integer
+      required: [sessionId, formName, mappedFields, completionPercent, missingCount, warningCount]
+
+    Warning:
+      type: object
+      properties:
+        id:
+          type: string
+        severity:
+          type: string
+          enum: [error, warning, info]
+        category:
+          type: string
+          enum: [missing, format, inconsistency, eligibility, general]
+        field:
+          type: string
+        message:
+          type: string
+        suggestion:
+          type: string
+      required: [id, severity, category, message, suggestion]
+
+    WarningsResult:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        warnings:
+          type: array
+          items:
+            $ref: "#/components/schemas/Warning"
+        errorCount:
+          type: integer
+        warningCount:
+          type: integer
+        infoCount:
+          type: integer
+      required: [sessionId, warnings, errorCount, warningCount, infoCount]
+
+    ChecklistItem:
+      type: object
+      properties:
+        id:
+          type: string
+        category:
+          type: string
+          enum: [carry, verify, do_next]
+        text:
+          type: string
+        required:
+          type: boolean
+        note:
+          type: string
+      required: [id, category, text, required]
+
+    SubmissionStep:
+      type: object
+      properties:
+        step:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+      required: [step, title, description]
+
+    ChecklistResult:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        formName:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChecklistItem"
+        submissionSteps:
+          type: array
+          items:
+            $ref: "#/components/schemas/SubmissionStep"
+        submissionOffice:
+          type: string
+        processingTime:
+          type: string
+        fee:
+          type: string
+        warnings:
+          type: array
+          items:
+            type: string
+      required: [sessionId, formName, items, submissionSteps, submissionOffice, processingTime, fee, warnings]
+
+    PdfResult:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        downloadUrl:
+          type: string
+        generatedAt:
+          type: string
+          format: date-time
+        fieldCount:
+          type: integer
+        filledCount:
+          type: integer
+      required: [sessionId, downloadUrl, generatedAt, fieldCount, filledCount]
