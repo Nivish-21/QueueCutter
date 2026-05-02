@@ -62,6 +62,21 @@ QueueCutter is an AI paperwork copilot for government forms. It turns confusing 
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - `pnpm --filter @workspace/api-server run dev` — run API server locally
 
+## AI Copilot Features
+
+Powered by OpenAI via Replit AI Integrations (no API key required, billed to Replit credits).
+
+Two AI endpoints in `artifacts/api-server/src/routes/ai.ts`:
+
+- `POST /api/ai/explain` — given a question ID + form context, returns a plain-language explanation, why the government asks it, common mistakes, and a concrete example answer
+- `POST /api/ai/interpret` — given a user's free-text input, normalizes it to the expected format (e.g. "around 2 grand a month" → "2000", "born in 85" → asks for clarification), with high/medium/low confidence scoring
+
+The session interview page (`artifacts/queue-cutter/src/pages/session.tsx`) uses both:
+- **Help button** (top-right of each question card) — triggers `aiExplain`, expands an AI Copilot panel below the question header
+- **"Clean up my answer with AI" link** (below text/number/textarea inputs) — triggers `aiInterpret`, shows interpreted value with confidence badge and accept/reject choice
+
+**Important**: `gpt-5-mini` is a reasoning model. `max_completion_tokens` must be set high (4096 for explain, 2048 for interpret) so reasoning tokens don't exhaust the budget before producing output.
+
 ## Non-Goals (MVP)
 
 - No live government system integration

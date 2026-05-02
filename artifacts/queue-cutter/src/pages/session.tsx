@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
-import { useGetSession, useGetForm, useUpdateAnswers } from "@workspace/api-client-react";
+import {
+  useGetSession,
+  useGetForm,
+  useUpdateAnswers,
+  useAiExplain,
+  useAiInterpret,
+} from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -10,8 +16,34 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  HelpCircle,
+  Sparkles,
+  X,
+  CheckCircle2,
+  AlertCircle,
+  Info,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+
+interface AiExplainResult {
+  explanation: string;
+  whyWeAsk: string;
+  commonMistakes: string[];
+  example?: string;
+}
+
+interface AiInterpretResult {
+  interpretedValue: string;
+  confidence: "high" | "medium" | "low";
+  explanation: string;
+  needsClarification: boolean;
+  clarificationPrompt?: string;
+}
 
 export default function SessionInterview() {
   const params = useParams();
@@ -29,9 +61,16 @@ export default function SessionInterview() {
   });
 
   const updateAnswers = useUpdateAnswers();
-  
+  const aiExplain = useAiExplain();
+  const aiInterpret = useAiInterpret();
+
   const [currentValue, setCurrentValue] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
+
+  const [showExplain, setShowExplain] = useState(false);
+  const [explainResult, setExplainResult] = useState<AiExplainResult | null>(null);
+  const [interpretResult, setInterpretResult] = useState<AiInterpretResult | null>(null);
+  const [interpretedInput, setInterpretedInput] = useState<string>("");
 
   useEffect(() => {
     if (session && form) {
@@ -40,11 +79,14 @@ export default function SessionInterview() {
         setLocation(`/session/${sessionId}/preview`);
         return;
       }
-      
       const currentQuestion = questions[session.currentStep];
       if (currentQuestion) {
         setCurrentValue(session.answers[currentQuestion.id] || "");
         setError(null);
+        setShowExplain(false);
+        setExplainResult(null);
+        setInterpretResult(null);
+        setInterpretedInput("");
       }
     }
   }, [session, form, setLocation, sessionId]);
@@ -69,18 +111,15 @@ export default function SessionInterview() {
   const questions = form.questions;
   const currentStep = session.currentStep;
 
-  // Handle redirect if complete
   if (currentStep >= questions.length) {
     return null;
   }
 
   const currentQuestion = questions[currentStep];
-  
-  // Skip conditional questions if condition is not met
+
   if (currentQuestion.conditionalOn) {
     const conditionMet = session.answers[currentQuestion.conditionalOn.questionId] === currentQuestion.conditionalOn.value;
     if (!conditionMet) {
-      // Auto-skip this step
       updateAnswers.mutate({
         sessionId,
         data: { answers: session.answers, step: currentStep + 1 }
@@ -100,7 +139,6 @@ export default function SessionInterview() {
       setError("This question is required.");
       return;
     }
-    
     if (currentQuestion.validationPattern && currentValue) {
       const regex = new RegExp(currentQuestion.validationPattern);
       if (!regex.test(currentValue)) {
@@ -108,9 +146,7 @@ export default function SessionInterview() {
         return;
       }
     }
-
     const newAnswers = { ...session.answers, [currentQuestion.id]: currentValue };
-    
     updateAnswers.mutate({
       sessionId,
       data: { answers: newAnswers, step: currentStep + 1 }
@@ -131,22 +167,89 @@ export default function SessionInterview() {
     }
   };
 
+  const handleExplain = () => {
+    if (showExplain && explainResult) {
+      setShowExplain(false);
+      return;
+    }
+    setShowExplain(true);
+    if (explainResult) return;
+    aiExplain.mutate({
+      data: {
+        questionId: currentQuestion.id,
+        questionText: currentQuestion.text,
+        hint: currentQuestion.hint,
+        formName: form.name,
+        officialLabel: currentQuestion.officialLabel,
+      }
+    }, {
+      onSuccess: (result) => setExplainResult(result),
+      onError: () => toast({ title: "Couldn't load explanation", variant: "destructive" })
+    });
+  };
+
+  const handleInterpret = () => {
+    if (!currentValue.trim()) {
+      toast({ title: "Type something first, then I'll help interpret it." });
+      return;
+    }
+    setInterpretedInput(currentValue);
+    aiInterpret.mutate({
+      data: {
+        questionId: currentQuestion.id,
+        questionText: currentQuestion.text,
+        questionType: currentQuestion.type,
+        rawInput: currentValue,
+        options: currentQuestion.options,
+      }
+    }, {
+      onSuccess: (result) => {
+        setInterpretResult(result);
+        if (!result.needsClarification) {
+          setCurrentValue(result.interpretedValue);
+        }
+      },
+      onError: () => toast({ title: "Couldn't interpret answer", variant: "destructive" })
+    });
+  };
+
+  const handleAcceptInterpretation = () => {
+    if (interpretResult) {
+      setCurrentValue(interpretResult.interpretedValue);
+      setInterpretResult(null);
+    }
+  };
+
+  const confidenceColor = {
+    high: "text-green-600 dark:text-green-400",
+    medium: "text-amber-600 dark:text-amber-400",
+    low: "text-red-600 dark:text-red-400",
+  };
+
+  const confidenceIcon = {
+    high: CheckCircle2,
+    medium: AlertCircle,
+    low: AlertCircle,
+  };
+
+  const canInterpret = ["text", "number", "textarea"].includes(currentQuestion.type);
+
   const renderInput = () => {
     switch (currentQuestion.type) {
       case "text":
         return (
-          <Input 
+          <Input
             autoFocus
             className="h-14 text-lg"
             value={currentValue}
-            onChange={(e) => { setCurrentValue(e.target.value); setError(null); }}
+            onChange={(e) => { setCurrentValue(e.target.value); setError(null); setInterpretResult(null); }}
             placeholder="Type your answer here..."
             onKeyDown={(e) => e.key === "Enter" && handleNext()}
           />
         );
       case "date":
         return (
-          <Input 
+          <Input
             type="date"
             className="h-14 text-lg"
             value={currentValue}
@@ -156,22 +259,22 @@ export default function SessionInterview() {
         );
       case "number":
         return (
-          <Input 
+          <Input
             type="number"
             className="h-14 text-lg"
             value={currentValue}
-            onChange={(e) => { setCurrentValue(e.target.value); setError(null); }}
+            onChange={(e) => { setCurrentValue(e.target.value); setError(null); setInterpretResult(null); }}
             placeholder="0"
             onKeyDown={(e) => e.key === "Enter" && handleNext()}
           />
         );
       case "textarea":
         return (
-          <Textarea 
+          <Textarea
             autoFocus
             className="min-h-[120px] text-lg resize-none"
             value={currentValue}
-            onChange={(e) => { setCurrentValue(e.target.value); setError(null); }}
+            onChange={(e) => { setCurrentValue(e.target.value); setError(null); setInterpretResult(null); }}
             placeholder="Type your answer here..."
           />
         );
@@ -224,7 +327,7 @@ export default function SessionInterview() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-8 py-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="max-w-2xl mx-auto space-y-6 py-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="space-y-2">
         <div className="flex justify-between text-sm font-medium text-muted-foreground">
           <span>Question {currentStep + 1} of {questions.length}</span>
@@ -235,19 +338,161 @@ export default function SessionInterview() {
 
       <Card className="border-0 shadow-lg bg-card overflow-hidden">
         <CardHeader className="bg-primary/5 border-b border-primary/10 pb-8 pt-10 px-8">
-          <h2 className="text-3xl font-semibold text-foreground leading-tight">
-            {currentQuestion.text}
-          </h2>
+          <div className="flex items-start justify-between gap-4">
+            <h2 className="text-3xl font-semibold text-foreground leading-tight flex-1">
+              {currentQuestion.text}
+            </h2>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="shrink-0 text-muted-foreground hover:text-primary gap-1.5 -mt-1"
+              onClick={handleExplain}
+              disabled={aiExplain.isPending}
+            >
+              {aiExplain.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <HelpCircle className="h-4 w-4" />
+              )}
+              Help
+            </Button>
+          </div>
           {currentQuestion.hint && (
             <p className="text-lg text-muted-foreground mt-4 leading-relaxed">
               {currentQuestion.hint}
             </p>
           )}
         </CardHeader>
-        
+
+        {showExplain && (
+          <div className="border-b border-border/60 bg-blue-50/60 dark:bg-blue-950/20 px-8 py-5 animate-in slide-in-from-top-2 duration-300">
+            {aiExplain.isPending ? (
+              <div className="flex items-center gap-3 text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                <span className="text-sm">Getting AI explanation...</span>
+              </div>
+            ) : explainResult ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-primary font-medium text-sm">
+                    <Sparkles className="h-4 w-4" />
+                    AI Copilot
+                  </div>
+                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowExplain(false)}>
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                <p className="text-sm text-foreground leading-relaxed">{explainResult.explanation}</p>
+                <div className="bg-background/70 rounded-md p-3 border border-border/50">
+                  <div className="flex items-start gap-2">
+                    <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
+                    <p className="text-xs text-muted-foreground leading-relaxed">{explainResult.whyWeAsk}</p>
+                  </div>
+                </div>
+                {explainResult.commonMistakes.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Common mistakes to avoid</p>
+                    <ul className="space-y-1">
+                      {explainResult.commonMistakes.map((m, i) => (
+                        <li key={i} className="text-xs text-muted-foreground flex items-start gap-2">
+                          <span className="text-amber-500 shrink-0">•</span>
+                          {m}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {explainResult.example && (
+                  <div className="flex items-start gap-2 text-xs text-muted-foreground">
+                    <span className="shrink-0 font-medium text-foreground">Example:</span>
+                    <span className="font-mono bg-muted/60 px-1.5 py-0.5 rounded">{explainResult.example}</span>
+                  </div>
+                )}
+              </div>
+            ) : null}
+          </div>
+        )}
+
         <CardContent className="p-8">
           <div className="space-y-4">
             {renderInput()}
+
+            {canInterpret && (
+              <div className="flex items-center justify-between">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-muted-foreground hover:text-primary gap-1.5 px-0"
+                  onClick={handleInterpret}
+                  disabled={aiInterpret.isPending || !currentValue.trim()}
+                >
+                  {aiInterpret.isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-3.5 w-3.5" />
+                  )}
+                  {aiInterpret.isPending ? "Interpreting..." : "Clean up my answer with AI"}
+                </Button>
+              </div>
+            )}
+
+            {interpretResult && (
+              <div className="rounded-lg border border-border/60 bg-muted/30 p-4 space-y-3 animate-in slide-in-from-top-1 duration-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium">AI Interpretation</span>
+                    {(() => {
+                      const Icon = confidenceIcon[interpretResult.confidence];
+                      return (
+                        <Badge variant="outline" className={`text-xs gap-1 ${confidenceColor[interpretResult.confidence]}`}>
+                          <Icon className="h-3 w-3" />
+                          {interpretResult.confidence} confidence
+                        </Badge>
+                      );
+                    })()}
+                  </div>
+                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setInterpretResult(null)}>
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">You typed:</p>
+                  <p className="text-sm font-mono bg-background/70 border border-border/50 px-2 py-1 rounded">{interpretedInput}</p>
+                </div>
+
+                {!interpretResult.needsClarification ? (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Cleaned up to:</p>
+                    <p className="text-sm font-mono font-medium bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900/50 px-2 py-1 rounded text-green-800 dark:text-green-300">
+                      {interpretResult.interpretedValue}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-2">{interpretResult.explanation}</p>
+                    <div className="flex gap-2 mt-3">
+                      <Button size="sm" variant="default" className="gap-1.5 text-xs h-8" onClick={handleAcceptInterpretation}>
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        Use this value
+                      </Button>
+                      <Button size="sm" variant="ghost" className="text-xs h-8" onClick={() => setInterpretResult(null)}>
+                        Keep my original
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 rounded-md p-3">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Needs clarification</p>
+                        <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">{interpretResult.clarificationPrompt}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {error && (
               <p className="text-destructive font-medium text-sm animate-in slide-in-from-top-1">{error}</p>
             )}
@@ -255,8 +500,8 @@ export default function SessionInterview() {
         </CardContent>
 
         <CardFooter className="px-8 py-6 bg-muted/20 border-t border-border/40 flex justify-between">
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             size="lg"
             onClick={handleBack}
             disabled={currentStep === 0 || updateAnswers.isPending}
@@ -265,8 +510,8 @@ export default function SessionInterview() {
             <ChevronLeft className="mr-2 h-5 w-5" />
             Back
           </Button>
-          
-          <Button 
+
+          <Button
             size="lg"
             onClick={handleNext}
             disabled={updateAnswers.isPending}

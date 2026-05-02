@@ -1,0 +1,287 @@
+QUEUECUTTER — MINIMUM MARKETABLE PRODUCT UPGRADE
+CONTINUATION BUILD — DO NOT RESTART
+
+The base MVP has been built. Do NOT delete or restart what exists.
+You are now upgrading QueueCutter from MVP to Minimum Marketable Product (MMP).
+All new features must integrate INTO the existing build.
+
+HARD RULES REMAIN:
+- DO NOT stop after writing code.
+- DO NOT say "done" unless verified working.
+- Run the full build-test-debug-verify loop on every new feature.
+- If any existing MVP feature breaks during this upgrade, fix it before continuing.
+
+WHAT HAS BEEN BUILT (PRESERVE THIS):
+- 1–2 form schemas
+- Guided Q&A interview
+- Field mapping
+- PDF generation
+- Checklist generation
+- Warning engine
+
+NEW OBJECTIVE: MINIMUM MARKETABLE PRODUCT
+
+Transform QueueCutter into a multi-country, persona-aware, AI-powered government
+form copilot that is ready for a live hackathon demo and fundable at a YC-style pitch.
+
+MMP FEATURE SET — BUILD ALL OF THESE:
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FEATURE 1: COUNTRY SELECTOR + CATALOG
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Add a country selection screen as the NEW first screen.
+
+Support three countries:
+  - India 🇮🇳
+  - United Kingdom 🇬🇧
+  - United States 🇺🇸
+
+Each country must have:
+  - Its own form catalog (minimum 2 forms per country)
+  - Its own document naming conventions
+  - Its own submission context text
+
+INDIA forms:
+  1. Income Certificate (common, high rejection rate)
+  2. Domicile / Residence Certificate
+
+UK forms:
+  1. Council Tax Reduction Application
+  2. Proof of Address Letter for Benefits
+
+USA forms:
+  1. Social Security Card Replacement (SS-5)
+  2. SNAP Benefits Application (simplified)
+
+Each form must be a structured schema object with:
+  - formId, countryCode, displayName, description
+  - whoIsItFor (plain text)
+  - fields[] — each with: fieldId, label, type, required, validationRules
+  - requiredDocuments[]
+  - submissionMethod (walk-in / online / postal)
+  - submissionOffice (description, not real URL)
+  - commonRejectionReasons[]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FEATURE 2: USER PERSONA DETECTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+After country selection, ask 3 short profiling questions:
+  1. "What describes you best?" 
+     Options: Student | Working Professional | Self-Employed | Senior Citizen | Unemployed | Other
+  2. "Have you applied for this type of form before?"
+     Options: First time | Applied before but it was rejected | Applied before and got it | Not sure
+  3. "How comfortable are you with paperwork?"
+     Options: I find it confusing | I manage okay | I'm comfortable with it
+
+Use these answers to:
+  - adjust question complexity (students and seniors get simpler phrasing),
+  - add relevant tooltips (first-timers see "why we ask this" on each question),
+  - pre-warn about commonly missing docs for their persona,
+  - set the tone of the checklist (casual vs. formal).
+
+Store persona as: { role, priorExperience, comfort }
+Persona affects the ENTIRE downstream experience.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FEATURE 3: AI-POWERED QUESTION + ANSWER ENGINE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Use the Replit OpenAI integration (already set up) for three jobs:
+
+JOB 1 — QUESTION SIMPLIFICATION
+  For each form field, use the LLM to generate a plain-language question
+  appropriate for the detected persona.
+  
+  Example:
+    Field label: "Annual gross income from all sources"
+    Persona: Senior citizen, confused with paperwork
+    Generated question: "How much money do you receive each year in total — 
+    including pension, savings interest, and any other income?"
+
+JOB 2 — ANSWER INTERPRETATION
+  Accept free-form natural language answers and extract structured values.
+  
+  Examples:
+    User types: "about 2 lakhs a year"  →  extract: 200000, currency: INR, period: annual
+    User types: "I live with my son in his house"  →  extract: occupancy: dependent family member
+    User types: "been here 12 years"  →  extract: residency_years: 12
+
+JOB 3 — INCONSISTENCY DETECTION
+  After all answers are collected, run a consistency check prompt:
+  
+  Check for:
+    - Claims unemployed but listed an employer name
+    - Income seems inconsistent with stated occupation
+    - Address fields do not match
+    - Date of birth makes stated age impossible
+    - Residency duration contradicts stated address history
+  
+  Output: list of flagged inconsistencies with plain-language explanation.
+
+FALLBACK (if OpenAI is unavailable):
+  Fall back to deterministic rules-based parsing.
+  Do NOT block the user — silently degrade gracefully.
+  Log that AI was unavailable and rules fallback was used.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FEATURE 4: ADAPTIVE CHECKLIST ENGINE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Replace the static checklist with a dynamic one.
+
+The checklist must:
+  - Be generated from the form schema + user answers + persona.
+  - Customize document names per country
+    (India: Aadhaar / UK: National Insurance card / USA: Social Security card).
+  - Flag documents the user likely doesn't have based on their answers.
+  - Include a "LIKELY REJECTION RISK" badge on any checklist item
+    that is commonly missed and causes rejections.
+  - Group items: "Bring on the day" vs "Prepare in advance" vs "Optional but helpful".
+  - Add a "What happens next" step-by-step guide at the bottom.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FEATURE 5: REJECTION RISK SCORE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+On the preview screen, show a REJECTION RISK SCORE from 0–100.
+
+Calculate it as:
+  Base: 100 (perfect)
+  -10 per missing required field
+  -15 per flagged inconsistency
+  -5 per optional field left blank
+  -10 per common rejection reason triggered
+
+Display as:
+  - A colored gauge (green 0–30, amber 31–60, red 61–100)
+  - A headline: "Low Risk — Your form looks complete"
+    or "High Risk — 3 issues may cause rejection"
+  - A clickable list of risk reasons
+
+This must update in real time as the user edits their answers in the preview.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FEATURE 6: BEFORE/AFTER DEMO SCREEN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Add a dedicated "Compare" view accessible from the output screen.
+
+Left panel: the original form field names in raw bureaucratic language.
+Right panel: the user's filled values in clean readable format.
+
+Add a timer at the top showing how long the user took.
+Add a tagline: "What used to take 3 visits now starts correctly in [X] minutes."
+
+This is for the hackathon demo moment — make it visually dramatic.
+Use a clear split layout. Make the left side look official and intimidating,
+the right side look clean and friendly.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FEATURE 7: MULTI-LANGUAGE HINT SYSTEM
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+For India: add optional Hindi tooltips on field labels.
+For UK/USA: keep English but adjust reading level for persona.
+
+This does NOT require full translation of the app.
+Only the field hints and question subtext need to vary.
+
+Implement as a simple language hint object per form:
+  { fieldId: "annual_income", hint_en: "...", hint_hi: "..." }
+
+Show the hint as a "(?) info icon" next to each question.
+Toggle between languages with a small flag button on the India flow.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FEATURE 8: TRUST + DISCLAIMER LAYER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Ensure these trust signals are present throughout the app:
+
+  - On the landing screen: 
+    "QueueCutter helps you prepare forms correctly. It is not an official 
+    government service. Always verify requirements with your local office."
+
+  - On PDF download:
+    Stamp the PDF header with: 
+    "DRAFT — Prepared with QueueCutter. Verify accuracy before submission."
+
+  - On the checklist:
+    Footer: "Requirements may vary. Check with your local office before visiting."
+
+  - On risk score:
+    "This is an estimate based on common rejection patterns, not a guarantee."
+
+These must NOT be intrusive modals. Use small banner text only.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+UPDATED TESTING REQUIREMENTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Run all original MVP tests PLUS:
+
+  - Test country selector renders all three countries.
+  - Test each country loads correct form catalog.
+  - Test persona profiling stores and propagates correctly.
+  - Test AI question simplification (or fallback) per persona.
+  - Test answer interpretation for at least 5 natural language inputs.
+  - Test inconsistency detection for 3 known conflicting inputs.
+  - Test adaptive checklist generates different output for different personas.
+  - Test rejection risk score updates when answers change.
+  - Test before/after demo screen renders correctly.
+  - Test Hindi hints appear on India forms.
+  - Test disclaimer text appears on PDF and checklist outputs.
+  - Test full end-to-end flow for all 3 countries independently.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+EXECUTION ORDER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Build in this order:
+  1. Country layer + extended form schemas (no UI yet, just data)
+  2. Country selector UI
+  3. Persona profiling screen
+  4. AI engine integration (question simplification + answer interpretation)
+  5. Adaptive checklist
+  6. Rejection risk score
+  7. Before/after demo screen
+  8. Multi-language hints
+  9. Trust layer
+  10. Full regression testing
+
+DO NOT:
+  - Build all 8 features in parallel and ship broken code.
+  - Skip tests to move faster.
+  - Claim any feature is done without verifying it in the running app.
+
+DO:
+  - Build one feature at a time.
+  - Test it end-to-end before moving on.
+  - Fix regressions immediately.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MMP COMPLETION CRITERIA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+QueueCutter MMP is complete ONLY when:
+
+  1. All 3 countries have working form catalogs.
+  2. Persona detection propagates throughout the flow.
+  3. AI question simplification works (or falls back gracefully).
+  4. Answer interpretation handles natural language inputs.
+  5. Inconsistency detection catches at least 3 known patterns.
+  6. Adaptive checklist varies by persona and country.
+  7. Rejection risk score renders and updates in real time.
+  8. Before/after demo screen is visually dramatic and functional.
+  9. Hindi hints appear on India forms.
+  10. All disclaimer text is present.
+  11. All MVP features still work (no regressions).
+  12. All new tests pass.
+  13. Full end-to-end for all 3 countries is verified.
+  14. A clean demo path works in under 3 minutes.
+  15. Release Gatekeeper confirms VERIFIED COMPLETION.
+
+START NOW. Do not restart the project. Extend what exists.
+Begin with Feature 1: Country layer + form schemas.

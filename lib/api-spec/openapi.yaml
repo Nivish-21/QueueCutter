@@ -14,6 +14,8 @@ tags:
     description: Form catalog operations
   - name: sessions
     description: Guided interview sessions
+  - name: ai
+    description: AI copilot features
 paths:
   /healthz:
     get:
@@ -308,6 +310,46 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
+  /ai/explain:
+    post:
+      operationId: aiExplain
+      tags: [ai]
+      summary: Explain a form question in plain language
+      description: Uses AI to explain why a question is asked and how to answer it correctly
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiExplainRequest"
+      responses:
+        "200":
+          description: AI explanation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiExplainResponse"
+
+  /ai/interpret:
+    post:
+      operationId: aiInterpret
+      tags: [ai]
+      summary: Interpret a natural-language answer
+      description: Uses AI to interpret ambiguous or free-text answers and normalize them to the expected format
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiInterpretRequest"
+      responses:
+        "200":
+          description: AI interpretation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiInterpretResponse"
 
 components:
   schemas:
@@ -628,3 +670,70 @@ components:
         filledCount:
           type: integer
       required: [sessionId, downloadUrl, generatedAt, fieldCount, filledCount]
+
+    AiExplainRequest:
+      type: object
+      properties:
+        questionId:
+          type: string
+        questionText:
+          type: string
+        hint:
+          type: string
+        formName:
+          type: string
+        officialLabel:
+          type: string
+      required: [questionId, questionText, formName, officialLabel]
+
+    AiExplainResponse:
+      type: object
+      properties:
+        questionId:
+          type: string
+        explanation:
+          type: string
+        whyWeAsk:
+          type: string
+        commonMistakes:
+          type: array
+          items:
+            type: string
+        example:
+          type: string
+      required: [questionId, explanation, whyWeAsk, commonMistakes]
+
+    AiInterpretRequest:
+      type: object
+      properties:
+        questionId:
+          type: string
+        questionText:
+          type: string
+        questionType:
+          type: string
+        rawInput:
+          type: string
+        options:
+          type: array
+          items:
+            type: string
+      required: [questionId, questionText, questionType, rawInput]
+
+    AiInterpretResponse:
+      type: object
+      properties:
+        questionId:
+          type: string
+        interpretedValue:
+          type: string
+        confidence:
+          type: string
+          enum: [high, medium, low]
+        explanation:
+          type: string
+        needsClarification:
+          type: boolean
+        clarificationPrompt:
+          type: string
+      required: [questionId, interpretedValue, confidence, explanation, needsClarification]
