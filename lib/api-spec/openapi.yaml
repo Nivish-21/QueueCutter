@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
-  version: 0.1.0
+  version: 0.2.0
   description: QueueCutter API specification
 servers:
   - url: /api
@@ -22,7 +22,6 @@ paths:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -31,12 +30,39 @@ paths:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
 
+  /countries:
+    get:
+      operationId: listCountries
+      tags: [forms]
+      summary: List supported countries
+      description: Returns the list of countries with supported form catalogs
+      responses:
+        "200":
+          description: Countries list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  countries:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Country"
+                required: [countries]
+
   /forms:
     get:
       operationId: listForms
       tags: [forms]
       summary: List available forms
-      description: Returns the catalog of supported government forms
+      description: Returns the catalog of supported government forms, optionally filtered by country
+      parameters:
+        - name: countryCode
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter forms by country code (US, IN, GB)
       responses:
         "200":
           description: List of forms
@@ -82,7 +108,6 @@ paths:
       operationId: listSessions
       tags: [sessions]
       summary: List recent sessions
-      description: Returns recent form sessions for the current user
       responses:
         "200":
           description: List of sessions
@@ -101,7 +126,6 @@ paths:
       operationId: createSession
       tags: [sessions]
       summary: Create a new session
-      description: Starts a new guided interview session for a form
       requestBody:
         required: true
         content:
@@ -127,7 +151,6 @@ paths:
       operationId: getSession
       tags: [sessions]
       summary: Get session state
-      description: Returns the current state of a form session including answers
       parameters:
         - name: sessionId
           in: path
@@ -148,12 +171,42 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /sessions/{sessionId}/persona:
+    put:
+      operationId: updatePersona
+      tags: [sessions]
+      summary: Save persona profile for a session
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Persona"
+      responses:
+        "200":
+          description: Updated session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "404":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /sessions/{sessionId}/answers:
     put:
       operationId: updateAnswers
       tags: [sessions]
       summary: Update session answers
-      description: Saves answers for the current step and advances the session
       parameters:
         - name: sessionId
           in: path
@@ -185,7 +238,6 @@ paths:
       operationId: getPreview
       tags: [sessions]
       summary: Get field preview
-      description: Returns mapped form fields from the user answers
       parameters:
         - name: sessionId
           in: path
@@ -206,12 +258,36 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /sessions/{sessionId}/risk-score:
+    get:
+      operationId: getRiskScore
+      tags: [sessions]
+      summary: Get rejection risk score for a session
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Risk score result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RiskScoreResult"
+        "404":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /sessions/{sessionId}/warnings:
     get:
       operationId: getWarnings
       tags: [sessions]
       summary: Get session warnings
-      description: Returns warnings for missing, inconsistent, or risky answers
       parameters:
         - name: sessionId
           in: path
@@ -237,7 +313,6 @@ paths:
       operationId: getChecklist
       tags: [sessions]
       summary: Get document checklist
-      description: Returns required documents and submission steps for the form
       parameters:
         - name: sessionId
           in: path
@@ -263,7 +338,6 @@ paths:
       operationId: generatePdf
       tags: [sessions]
       summary: Generate filled PDF
-      description: Generates and returns a filled PDF for the session
       parameters:
         - name: sessionId
           in: path
@@ -289,7 +363,6 @@ paths:
       operationId: downloadPdf
       tags: [sessions]
       summary: Download generated PDF
-      description: Downloads the generated PDF file for a session
       parameters:
         - name: sessionId
           in: path
@@ -316,7 +389,6 @@ paths:
       operationId: aiExplain
       tags: [ai]
       summary: Explain a form question in plain language
-      description: Uses AI to explain why a question is asked and how to answer it correctly
       requestBody:
         required: true
         content:
@@ -336,7 +408,6 @@ paths:
       operationId: aiInterpret
       tags: [ai]
       summary: Interpret a natural-language answer
-      description: Uses AI to interpret ambiguous or free-text answers and normalize them to the expected format
       requestBody:
         required: true
         content:
@@ -350,6 +421,44 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AiInterpretResponse"
+
+  /ai/simplify:
+    post:
+      operationId: aiSimplify
+      tags: [ai]
+      summary: Simplify a form question for a user persona
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiSimplifyRequest"
+      responses:
+        "200":
+          description: Simplified question
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiSimplifyResponse"
+
+  /ai/inconsistencies:
+    post:
+      operationId: aiInconsistencies
+      tags: [ai]
+      summary: Detect inconsistencies across all answers
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiInconsistenciesRequest"
+      responses:
+        "200":
+          description: Inconsistency detection result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiInconsistenciesResponse"
 
 components:
   schemas:
@@ -369,10 +478,39 @@ components:
           type: string
       required: [error, message]
 
+    Country:
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        flag:
+          type: string
+        description:
+          type: string
+      required: [code, name, flag, description]
+
+    Persona:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [Student, Working Professional, Self-Employed, Senior Citizen, Unemployed, Other]
+        priorExperience:
+          type: string
+          enum: [First time, "Applied before but it was rejected", "Applied before and got it", Not sure]
+        comfort:
+          type: string
+          enum: ["I find it confusing", "I manage okay", "I'm comfortable with it"]
+      required: [role, priorExperience, comfort]
+
     FormSummary:
       type: object
       properties:
         id:
+          type: string
+        countryCode:
           type: string
         name:
           type: string
@@ -386,7 +524,7 @@ components:
           type: integer
         category:
           type: string
-      required: [id, name, shortDescription, whoItIsFor, estimatedMinutes, questionCount, category]
+      required: [id, countryCode, name, shortDescription, whoItIsFor, estimatedMinutes, questionCount, category]
 
     FormQuestion:
       type: object
@@ -396,6 +534,8 @@ components:
         text:
           type: string
         hint:
+          type: string
+        hintHi:
           type: string
         type:
           type: string
@@ -408,6 +548,8 @@ components:
           type: boolean
         fieldMapping:
           type: string
+        officialLabel:
+          type: string
         validationPattern:
           type: string
         conditionalOn:
@@ -418,12 +560,14 @@ components:
             value:
               type: string
           required: [questionId, value]
-      required: [id, text, type, required, fieldMapping]
+      required: [id, text, type, required, fieldMapping, officialLabel]
 
     FormDetail:
       type: object
       properties:
         id:
+          type: string
+        countryCode:
           type: string
         name:
           type: string
@@ -441,11 +585,17 @@ components:
           type: array
           items:
             type: string
+        commonRejectionReasons:
+          type: array
+          items:
+            type: string
         questions:
           type: array
           items:
             $ref: "#/components/schemas/FormQuestion"
         submissionOffice:
+          type: string
+        submissionMethod:
           type: string
         processingTime:
           type: string
@@ -453,7 +603,7 @@ components:
           type: string
         disclaimer:
           type: string
-      required: [id, name, officialName, shortDescription, longDescription, whoItIsFor, category, requiredDocuments, questions, submissionOffice, processingTime, fee, disclaimer]
+      required: [id, countryCode, name, officialName, shortDescription, longDescription, whoItIsFor, category, requiredDocuments, commonRejectionReasons, questions, submissionOffice, submissionMethod, processingTime, fee, disclaimer]
 
     SessionStatus:
       type: string
@@ -468,6 +618,8 @@ components:
           type: string
         formName:
           type: string
+        countryCode:
+          type: string
         status:
           $ref: "#/components/schemas/SessionStatus"
         currentStep:
@@ -478,6 +630,8 @@ components:
           type: object
           additionalProperties:
             type: string
+        persona:
+          $ref: "#/components/schemas/Persona"
         completionPercent:
           type: integer
         createdAt:
@@ -486,7 +640,7 @@ components:
         updatedAt:
           type: string
           format: date-time
-      required: [id, formId, formName, status, currentStep, totalSteps, answers, completionPercent, createdAt, updatedAt]
+      required: [id, formId, formName, countryCode, status, currentStep, totalSteps, answers, completionPercent, createdAt, updatedAt]
 
     SessionSummary:
       type: object
@@ -496,6 +650,8 @@ components:
         formId:
           type: string
         formName:
+          type: string
+        countryCode:
           type: string
         status:
           $ref: "#/components/schemas/SessionStatus"
@@ -507,12 +663,14 @@ components:
         updatedAt:
           type: string
           format: date-time
-      required: [id, formId, formName, status, completionPercent, createdAt, updatedAt]
+      required: [id, formId, formName, countryCode, status, completionPercent, createdAt, updatedAt]
 
     CreateSessionBody:
       type: object
       properties:
         formId:
+          type: string
+        countryCode:
           type: string
       required: [formId]
 
@@ -526,6 +684,39 @@ components:
         step:
           type: integer
       required: [answers, step]
+
+    RiskFactor:
+      type: object
+      properties:
+        description:
+          type: string
+        impact:
+          type: integer
+        category:
+          type: string
+          enum: [missing_required, inconsistency, optional_blank, rejection_pattern]
+      required: [description, impact, category]
+
+    RiskScoreResult:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        score:
+          type: integer
+          description: "Risk score 0-100. 0 = no risk (perfect). 100 = maximum risk."
+        level:
+          type: string
+          enum: [low, medium, high]
+        headline:
+          type: string
+        factors:
+          type: array
+          items:
+            $ref: "#/components/schemas/RiskFactor"
+        disclaimer:
+          type: string
+      required: [sessionId, score, level, headline, factors, disclaimer]
 
     MappedField:
       type: object
@@ -615,6 +806,8 @@ components:
           type: boolean
         note:
           type: string
+        rejectionRisk:
+          type: boolean
       required: [id, category, text, required]
 
     SubmissionStep:
@@ -653,7 +846,9 @@ components:
           type: array
           items:
             type: string
-      required: [sessionId, formName, items, submissionSteps, submissionOffice, processingTime, fee, warnings]
+        disclaimer:
+          type: string
+      required: [sessionId, formName, items, submissionSteps, submissionOffice, processingTime, fee, warnings, disclaimer]
 
     PdfResult:
       type: object
@@ -737,3 +932,71 @@ components:
         clarificationPrompt:
           type: string
       required: [questionId, interpretedValue, confidence, explanation, needsClarification]
+
+    AiSimplifyRequest:
+      type: object
+      properties:
+        questionId:
+          type: string
+        questionText:
+          type: string
+        hint:
+          type: string
+        officialLabel:
+          type: string
+        formName:
+          type: string
+        countryCode:
+          type: string
+        persona:
+          $ref: "#/components/schemas/Persona"
+      required: [questionId, questionText, officialLabel, formName, countryCode]
+
+    AiSimplifyResponse:
+      type: object
+      properties:
+        questionId:
+          type: string
+        simplifiedText:
+          type: string
+        simplifiedHint:
+          type: string
+      required: [questionId, simplifiedText]
+
+    AiInconsistenciesRequest:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        formId:
+          type: string
+        answers:
+          type: object
+          additionalProperties:
+            type: string
+      required: [sessionId, formId, answers]
+
+    AiInconsistenciesResponse:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        inconsistencies:
+          type: array
+          items:
+            type: object
+            properties:
+              fields:
+                type: array
+                items:
+                  type: string
+              message:
+                type: string
+              severity:
+                type: string
+                enum: [error, warning]
+            required: [fields, message, severity]
+        checkedAt:
+          type: string
+          format: date-time
+      required: [sessionId, inconsistencies, checkedAt]

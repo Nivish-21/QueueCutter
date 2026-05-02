@@ -6,10 +6,11 @@ import { getFormById, FORMS } from "../lib/forms.js";
 import { generateWarnings } from "../lib/warnings.js";
 import { generateChecklist } from "../lib/checklist.js";
 import { generatePdf } from "../lib/pdf-generator.js";
+import { calculateRiskScore } from "../lib/risk-score.js";
+import type { Persona } from "@workspace/db";
 
 const router = Router();
 
-// In-memory PDF cache (keyed by sessionId)
 const pdfCache = new Map<string, Buffer>();
 
 // GET /api/sessions
@@ -24,7 +25,7 @@ router.get("/", async (req, res) => {
 
 // POST /api/sessions
 router.post("/", async (req, res) => {
-  const { formId } = req.body as { formId?: string };
+  const { formId, countryCode } = req.body as { formId?: string; countryCode?: string };
   if (!formId) {
     res.status(400).json({ error: "bad_request", message: "formId is required" });
     return;
@@ -37,7 +38,6 @@ router.post("/", async (req, res) => {
   }
 
   const id = randomUUID();
-  const now = new Date();
 
   const [session] = await db
     .insert(sessionsTable)
@@ -45,10 +45,12 @@ router.post("/", async (req, res) => {
       id,
       formId,
       formName: form.name,
+      countryCode: countryCode ?? form.countryCode,
       status: "in_progress",
       currentStep: 0,
       totalSteps: form.questions.length,
       answers: {},
+      persona: null,
       completionPercent: 0,
     })
     .returning();
@@ -69,6 +71,36 @@ router.get("/:sessionId", async (req, res) => {
   }
 
   res.json(session);
+});
+
+// PUT /api/sessions/:sessionId/persona
+router.put("/:sessionId/persona", async (req, res) => {
+  const [session] = await db
+    .select()
+    .from(sessionsTable)
+    .where(eq(sessionsTable.id, req.params.sessionId));
+
+  if (!session) {
+    res.status(404).json({ error: "not_found", message: "Session not found" });
+    return;
+  }
+
+  const { role, priorExperience, comfort } = req.body as Partial<Persona>;
+
+  if (!role || !priorExperience || !comfort) {
+    res.status(400).json({ error: "bad_request", message: "role, priorExperience, and comfort are required" });
+    return;
+  }
+
+  const persona: Persona = { role: role as Persona["role"], priorExperience: priorExperience as Persona["priorExperience"], comfort: comfort as Persona["comfort"] };
+
+  const [updated] = await db
+    .update(sessionsTable)
+    .set({ persona, updatedAt: new Date() })
+    .where(eq(sessionsTable.id, req.params.sessionId))
+    .returning();
+
+  res.json(updated);
 });
 
 // PUT /api/sessions/:sessionId/answers
@@ -164,6 +196,31 @@ router.get("/:sessionId/preview", async (req, res) => {
   });
 });
 
+// GET /api/sessions/:sessionId/risk-score
+router.get("/:sessionId/risk-score", async (req, res) => {
+  const [session] = await db
+    .select()
+    .from(sessionsTable)
+    .where(eq(sessionsTable.id, req.params.sessionId));
+
+  if (!session) {
+    res.status(404).json({ error: "not_found", message: "Session not found" });
+    return;
+  }
+
+  const form = getFormById(session.formId);
+  if (!form) {
+    res.status(404).json({ error: "not_found", message: "Form schema not found" });
+    return;
+  }
+
+  const answers = session.answers as Record<string, string>;
+  const warnings = generateWarnings(form, answers);
+  const result = calculateRiskScore(session.id, form, answers, warnings);
+
+  res.json(result);
+});
+
 // GET /api/sessions/:sessionId/warnings
 router.get("/:sessionId/warnings", async (req, res) => {
   const [session] = await db
@@ -213,7 +270,8 @@ router.get("/:sessionId/checklist", async (req, res) => {
   }
 
   const answers = session.answers as Record<string, string>;
-  const { items, submissionSteps } = generateChecklist(form, answers);
+  const persona = session.persona as Persona | null;
+  const { items, submissionSteps, disclaimer } = generateChecklist(form, answers, persona);
   const warnings = generateWarnings(form, answers);
   const warningMessages = warnings
     .filter((w) => w.severity === "error" || w.severity === "warning")
@@ -228,6 +286,7 @@ router.get("/:sessionId/checklist", async (req, res) => {
     processingTime: form.processingTime,
     fee: form.fee,
     warnings: warningMessages,
+    disclaimer,
   });
 });
 
@@ -285,7 +344,6 @@ router.get("/:sessionId/pdf/download", async (req, res) => {
   let pdfBuffer = pdfCache.get(session.id);
 
   if (!pdfBuffer) {
-    // Generate on the fly if not cached
     const form = getFormById(session.formId);
     if (!form) {
       res.status(404).json({ error: "not_found", message: "Form schema not found" });

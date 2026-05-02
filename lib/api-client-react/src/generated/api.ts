@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * QueueCutter API specification
- * OpenAPI spec version: 0.1.0
+ * OpenAPI spec version: 0.2.0
  */
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
@@ -19,17 +19,25 @@ import type {
 import type {
   AiExplainRequest,
   AiExplainResponse,
+  AiInconsistenciesRequest,
+  AiInconsistenciesResponse,
   AiInterpretRequest,
   AiInterpretResponse,
+  AiSimplifyRequest,
+  AiSimplifyResponse,
   ChecklistResult,
   CreateSessionBody,
   ErrorResponse,
   FormDetail,
   HealthStatus,
+  ListCountries200,
   ListForms200,
+  ListFormsParams,
   ListSessions200,
   PdfResult,
+  Persona,
   PreviewResult,
+  RiskScoreResult,
   Session,
   UpdateAnswersBody,
   WarningsResult,
@@ -45,7 +53,6 @@ type Awaited<O> = O extends AwaitedInput<infer T> ? T : never;
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
 /**
- * Returns server health status
  * @summary Health check
  */
 export const getHealthCheckUrl = () => {
@@ -121,40 +128,136 @@ export function useHealthCheck<
 }
 
 /**
- * Returns the catalog of supported government forms
- * @summary List available forms
+ * Returns the list of countries with supported form catalogs
+ * @summary List supported countries
  */
-export const getListFormsUrl = () => {
-  return `/api/forms`;
+export const getListCountriesUrl = () => {
+  return `/api/countries`;
 };
 
-export const listForms = async (
+export const listCountries = async (
   options?: RequestInit,
-): Promise<ListForms200> => {
-  return customFetch<ListForms200>(getListFormsUrl(), {
+): Promise<ListCountries200> => {
+  return customFetch<ListCountries200>(getListCountriesUrl(), {
     ...options,
     method: "GET",
   });
 };
 
-export const getListFormsQueryKey = () => {
-  return [`/api/forms`] as const;
+export const getListCountriesQueryKey = () => {
+  return [`/api/countries`] as const;
+};
+
+export const getListCountriesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listCountries>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listCountries>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListCountriesQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listCountries>>> = ({
+    signal,
+  }) => listCountries({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listCountries>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListCountriesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listCountries>>
+>;
+export type ListCountriesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List supported countries
+ */
+
+export function useListCountries<
+  TData = Awaited<ReturnType<typeof listCountries>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listCountries>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListCountriesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns the catalog of supported government forms, optionally filtered by country
+ * @summary List available forms
+ */
+export const getListFormsUrl = (params?: ListFormsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/forms?${stringifiedParams}`
+    : `/api/forms`;
+};
+
+export const listForms = async (
+  params?: ListFormsParams,
+  options?: RequestInit,
+): Promise<ListForms200> => {
+  return customFetch<ListForms200>(getListFormsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListFormsQueryKey = (params?: ListFormsParams) => {
+  return [`/api/forms`, ...(params ? [params] : [])] as const;
 };
 
 export const getListFormsQueryOptions = <
   TData = Awaited<ReturnType<typeof listForms>>,
   TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<Awaited<ReturnType<typeof listForms>>, TError, TData>;
-  request?: SecondParameter<typeof customFetch>;
-}) => {
+>(
+  params?: ListFormsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listForms>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getListFormsQueryKey();
+  const queryKey = queryOptions?.queryKey ?? getListFormsQueryKey(params);
 
   const queryFn: QueryFunction<Awaited<ReturnType<typeof listForms>>> = ({
     signal,
-  }) => listForms({ signal, ...requestOptions });
+  }) => listForms(params, { signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof listForms>>,
@@ -175,11 +278,18 @@ export type ListFormsQueryError = ErrorType<unknown>;
 export function useListForms<
   TData = Awaited<ReturnType<typeof listForms>>,
   TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<Awaited<ReturnType<typeof listForms>>, TError, TData>;
-  request?: SecondParameter<typeof customFetch>;
-}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getListFormsQueryOptions(options);
+>(
+  params?: ListFormsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listForms>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListFormsQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
@@ -267,7 +377,6 @@ export function useGetForm<
 }
 
 /**
- * Returns recent form sessions for the current user
  * @summary List recent sessions
  */
 export const getListSessionsUrl = () => {
@@ -343,7 +452,6 @@ export function useListSessions<
 }
 
 /**
- * Starts a new guided interview session for a form
  * @summary Create a new session
  */
 export const getCreateSessionUrl = () => {
@@ -430,7 +538,6 @@ export const useCreateSession = <
 };
 
 /**
- * Returns the current state of a form session including answers
  * @summary Get session state
  */
 export const getGetSessionUrl = (sessionId: string) => {
@@ -518,7 +625,93 @@ export function useGetSession<
 }
 
 /**
- * Saves answers for the current step and advances the session
+ * @summary Save persona profile for a session
+ */
+export const getUpdatePersonaUrl = (sessionId: string) => {
+  return `/api/sessions/${sessionId}/persona`;
+};
+
+export const updatePersona = async (
+  sessionId: string,
+  persona: Persona,
+  options?: RequestInit,
+): Promise<Session> => {
+  return customFetch<Session>(getUpdatePersonaUrl(sessionId), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(persona),
+  });
+};
+
+export const getUpdatePersonaMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updatePersona>>,
+    TError,
+    { sessionId: string; data: BodyType<Persona> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updatePersona>>,
+  TError,
+  { sessionId: string; data: BodyType<Persona> },
+  TContext
+> => {
+  const mutationKey = ["updatePersona"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updatePersona>>,
+    { sessionId: string; data: BodyType<Persona> }
+  > = (props) => {
+    const { sessionId, data } = props ?? {};
+
+    return updatePersona(sessionId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdatePersonaMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updatePersona>>
+>;
+export type UpdatePersonaMutationBody = BodyType<Persona>;
+export type UpdatePersonaMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Save persona profile for a session
+ */
+export const useUpdatePersona = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updatePersona>>,
+    TError,
+    { sessionId: string; data: BodyType<Persona> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updatePersona>>,
+  TError,
+  { sessionId: string; data: BodyType<Persona> },
+  TContext
+> => {
+  return useMutation(getUpdatePersonaMutationOptions(options));
+};
+
+/**
  * @summary Update session answers
  */
 export const getUpdateAnswersUrl = (sessionId: string) => {
@@ -606,7 +799,6 @@ export const useUpdateAnswers = <
 };
 
 /**
- * Returns mapped form fields from the user answers
  * @summary Get field preview
  */
 export const getGetPreviewUrl = (sessionId: string) => {
@@ -694,7 +886,93 @@ export function useGetPreview<
 }
 
 /**
- * Returns warnings for missing, inconsistent, or risky answers
+ * @summary Get rejection risk score for a session
+ */
+export const getGetRiskScoreUrl = (sessionId: string) => {
+  return `/api/sessions/${sessionId}/risk-score`;
+};
+
+export const getRiskScore = async (
+  sessionId: string,
+  options?: RequestInit,
+): Promise<RiskScoreResult> => {
+  return customFetch<RiskScoreResult>(getGetRiskScoreUrl(sessionId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetRiskScoreQueryKey = (sessionId: string) => {
+  return [`/api/sessions/${sessionId}/risk-score`] as const;
+};
+
+export const getGetRiskScoreQueryOptions = <
+  TData = Awaited<ReturnType<typeof getRiskScore>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  sessionId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getRiskScore>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetRiskScoreQueryKey(sessionId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getRiskScore>>> = ({
+    signal,
+  }) => getRiskScore(sessionId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!sessionId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getRiskScore>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetRiskScoreQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getRiskScore>>
+>;
+export type GetRiskScoreQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get rejection risk score for a session
+ */
+
+export function useGetRiskScore<
+  TData = Awaited<ReturnType<typeof getRiskScore>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  sessionId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getRiskScore>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetRiskScoreQueryOptions(sessionId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary Get session warnings
  */
 export const getGetWarningsUrl = (sessionId: string) => {
@@ -782,7 +1060,6 @@ export function useGetWarnings<
 }
 
 /**
- * Returns required documents and submission steps for the form
  * @summary Get document checklist
  */
 export const getGetChecklistUrl = (sessionId: string) => {
@@ -870,7 +1147,6 @@ export function useGetChecklist<
 }
 
 /**
- * Generates and returns a filled PDF for the session
  * @summary Generate filled PDF
  */
 export const getGeneratePdfUrl = (sessionId: string) => {
@@ -955,7 +1231,6 @@ export const useGeneratePdf = <
 };
 
 /**
- * Downloads the generated PDF file for a session
  * @summary Download generated PDF
  */
 export const getDownloadPdfUrl = (sessionId: string) => {
@@ -1043,7 +1318,6 @@ export function useDownloadPdf<
 }
 
 /**
- * Uses AI to explain why a question is asked and how to answer it correctly
  * @summary Explain a form question in plain language
  */
 export const getAiExplainUrl = () => {
@@ -1130,7 +1404,6 @@ export const useAiExplain = <
 };
 
 /**
- * Uses AI to interpret ambiguous or free-text answers and normalize them to the expected format
  * @summary Interpret a natural-language answer
  */
 export const getAiInterpretUrl = () => {
@@ -1214,4 +1487,176 @@ export const useAiInterpret = <
   TContext
 > => {
   return useMutation(getAiInterpretMutationOptions(options));
+};
+
+/**
+ * @summary Simplify a form question for a user persona
+ */
+export const getAiSimplifyUrl = () => {
+  return `/api/ai/simplify`;
+};
+
+export const aiSimplify = async (
+  aiSimplifyRequest: AiSimplifyRequest,
+  options?: RequestInit,
+): Promise<AiSimplifyResponse> => {
+  return customFetch<AiSimplifyResponse>(getAiSimplifyUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(aiSimplifyRequest),
+  });
+};
+
+export const getAiSimplifyMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof aiSimplify>>,
+    TError,
+    { data: BodyType<AiSimplifyRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof aiSimplify>>,
+  TError,
+  { data: BodyType<AiSimplifyRequest> },
+  TContext
+> => {
+  const mutationKey = ["aiSimplify"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof aiSimplify>>,
+    { data: BodyType<AiSimplifyRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return aiSimplify(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AiSimplifyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof aiSimplify>>
+>;
+export type AiSimplifyMutationBody = BodyType<AiSimplifyRequest>;
+export type AiSimplifyMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Simplify a form question for a user persona
+ */
+export const useAiSimplify = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof aiSimplify>>,
+    TError,
+    { data: BodyType<AiSimplifyRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof aiSimplify>>,
+  TError,
+  { data: BodyType<AiSimplifyRequest> },
+  TContext
+> => {
+  return useMutation(getAiSimplifyMutationOptions(options));
+};
+
+/**
+ * @summary Detect inconsistencies across all answers
+ */
+export const getAiInconsistenciesUrl = () => {
+  return `/api/ai/inconsistencies`;
+};
+
+export const aiInconsistencies = async (
+  aiInconsistenciesRequest: AiInconsistenciesRequest,
+  options?: RequestInit,
+): Promise<AiInconsistenciesResponse> => {
+  return customFetch<AiInconsistenciesResponse>(getAiInconsistenciesUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(aiInconsistenciesRequest),
+  });
+};
+
+export const getAiInconsistenciesMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof aiInconsistencies>>,
+    TError,
+    { data: BodyType<AiInconsistenciesRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof aiInconsistencies>>,
+  TError,
+  { data: BodyType<AiInconsistenciesRequest> },
+  TContext
+> => {
+  const mutationKey = ["aiInconsistencies"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof aiInconsistencies>>,
+    { data: BodyType<AiInconsistenciesRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return aiInconsistencies(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AiInconsistenciesMutationResult = NonNullable<
+  Awaited<ReturnType<typeof aiInconsistencies>>
+>;
+export type AiInconsistenciesMutationBody = BodyType<AiInconsistenciesRequest>;
+export type AiInconsistenciesMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Detect inconsistencies across all answers
+ */
+export const useAiInconsistencies = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof aiInconsistencies>>,
+    TError,
+    { data: BodyType<AiInconsistenciesRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof aiInconsistencies>>,
+  TError,
+  { data: BodyType<AiInconsistenciesRequest> },
+  TContext
+> => {
+  return useMutation(getAiInconsistenciesMutationOptions(options));
 };

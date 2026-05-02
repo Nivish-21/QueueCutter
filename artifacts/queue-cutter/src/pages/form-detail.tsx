@@ -24,7 +24,7 @@ export default function FormDetail() {
       { data: { formId } },
       {
         onSuccess: (session) => {
-          setLocation(`/session/${session.id}`);
+          setLocation(`/persona/${session.id}`);
         },
         onError: () => {
           toast({
@@ -95,7 +95,7 @@ export default function FormDetail() {
                 <Clock className="h-5 w-5" />
                 Time
               </div>
-              <div className="text-sm text-muted-foreground">Takes ~{form.estimatedMinutes} minutes to complete. Processing takes {form.processingTime}.</div>
+              <div className="text-sm text-muted-foreground">Takes ~{Math.ceil(form.questions.length * 1.5)} minutes to complete. Processing takes {form.processingTime}.</div>
             </div>
             <div className="flex flex-col gap-2">
               <div className="flex items-center text-primary font-medium gap-2">

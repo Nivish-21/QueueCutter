@@ -3,12 +3,11 @@
  * Do not edit manually.
  * Api
  * QueueCutter API specification
- * OpenAPI spec version: 0.1.0
+ * OpenAPI spec version: 0.2.0
  */
 import * as zod from "zod";
 
 /**
- * Returns server health status
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({
@@ -16,13 +15,36 @@ export const HealthCheckResponse = zod.object({
 });
 
 /**
- * Returns the catalog of supported government forms
+ * Returns the list of countries with supported form catalogs
+ * @summary List supported countries
+ */
+export const ListCountriesResponse = zod.object({
+  countries: zod.array(
+    zod.object({
+      code: zod.string(),
+      name: zod.string(),
+      flag: zod.string(),
+      description: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * Returns the catalog of supported government forms, optionally filtered by country
  * @summary List available forms
  */
+export const ListFormsQueryParams = zod.object({
+  countryCode: zod.coerce
+    .string()
+    .optional()
+    .describe("Filter forms by country code (US, IN, GB)"),
+});
+
 export const ListFormsResponse = zod.object({
   forms: zod.array(
     zod.object({
       id: zod.string(),
+      countryCode: zod.string(),
       name: zod.string(),
       shortDescription: zod.string(),
       whoItIsFor: zod.string(),
@@ -43,6 +65,7 @@ export const GetFormParams = zod.object({
 
 export const GetFormResponse = zod.object({
   id: zod.string(),
+  countryCode: zod.string(),
   name: zod.string(),
   officialName: zod.string(),
   shortDescription: zod.string(),
@@ -50,11 +73,13 @@ export const GetFormResponse = zod.object({
   whoItIsFor: zod.string(),
   category: zod.string(),
   requiredDocuments: zod.array(zod.string()),
+  commonRejectionReasons: zod.array(zod.string()),
   questions: zod.array(
     zod.object({
       id: zod.string(),
       text: zod.string(),
       hint: zod.string().optional(),
+      hintHi: zod.string().optional(),
       type: zod.enum([
         "text",
         "date",
@@ -67,6 +92,7 @@ export const GetFormResponse = zod.object({
       options: zod.array(zod.string()).optional(),
       required: zod.boolean(),
       fieldMapping: zod.string(),
+      officialLabel: zod.string(),
       validationPattern: zod.string().optional(),
       conditionalOn: zod
         .object({
@@ -77,13 +103,13 @@ export const GetFormResponse = zod.object({
     }),
   ),
   submissionOffice: zod.string(),
+  submissionMethod: zod.string(),
   processingTime: zod.string(),
   fee: zod.string(),
   disclaimer: zod.string(),
 });
 
 /**
- * Returns recent form sessions for the current user
  * @summary List recent sessions
  */
 export const ListSessionsResponse = zod.object({
@@ -92,6 +118,7 @@ export const ListSessionsResponse = zod.object({
       id: zod.string(),
       formId: zod.string(),
       formName: zod.string(),
+      countryCode: zod.string(),
       status: zod.enum(["in_progress", "completed", "abandoned"]),
       completionPercent: zod.number(),
       createdAt: zod.coerce.date(),
@@ -101,15 +128,14 @@ export const ListSessionsResponse = zod.object({
 });
 
 /**
- * Starts a new guided interview session for a form
  * @summary Create a new session
  */
 export const CreateSessionBody = zod.object({
   formId: zod.string(),
+  countryCode: zod.string().optional(),
 });
 
 /**
- * Returns the current state of a form session including answers
  * @summary Get session state
  */
 export const GetSessionParams = zod.object({
@@ -120,17 +146,106 @@ export const GetSessionResponse = zod.object({
   id: zod.string(),
   formId: zod.string(),
   formName: zod.string(),
+  countryCode: zod.string(),
   status: zod.enum(["in_progress", "completed", "abandoned"]),
   currentStep: zod.number(),
   totalSteps: zod.number(),
   answers: zod.record(zod.string(), zod.string()),
+  persona: zod
+    .object({
+      role: zod.enum([
+        "Student",
+        "Working Professional",
+        "Self-Employed",
+        "Senior Citizen",
+        "Unemployed",
+        "Other",
+      ]),
+      priorExperience: zod.enum([
+        "First time",
+        "Applied before but it was rejected",
+        "Applied before and got it",
+        "Not sure",
+      ]),
+      comfort: zod.enum([
+        "I find it confusing",
+        "I manage okay",
+        "I'm comfortable with it",
+      ]),
+    })
+    .optional(),
   completionPercent: zod.number(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
 
 /**
- * Saves answers for the current step and advances the session
+ * @summary Save persona profile for a session
+ */
+export const UpdatePersonaParams = zod.object({
+  sessionId: zod.coerce.string(),
+});
+
+export const UpdatePersonaBody = zod.object({
+  role: zod.enum([
+    "Student",
+    "Working Professional",
+    "Self-Employed",
+    "Senior Citizen",
+    "Unemployed",
+    "Other",
+  ]),
+  priorExperience: zod.enum([
+    "First time",
+    "Applied before but it was rejected",
+    "Applied before and got it",
+    "Not sure",
+  ]),
+  comfort: zod.enum([
+    "I find it confusing",
+    "I manage okay",
+    "I'm comfortable with it",
+  ]),
+});
+
+export const UpdatePersonaResponse = zod.object({
+  id: zod.string(),
+  formId: zod.string(),
+  formName: zod.string(),
+  countryCode: zod.string(),
+  status: zod.enum(["in_progress", "completed", "abandoned"]),
+  currentStep: zod.number(),
+  totalSteps: zod.number(),
+  answers: zod.record(zod.string(), zod.string()),
+  persona: zod
+    .object({
+      role: zod.enum([
+        "Student",
+        "Working Professional",
+        "Self-Employed",
+        "Senior Citizen",
+        "Unemployed",
+        "Other",
+      ]),
+      priorExperience: zod.enum([
+        "First time",
+        "Applied before but it was rejected",
+        "Applied before and got it",
+        "Not sure",
+      ]),
+      comfort: zod.enum([
+        "I find it confusing",
+        "I manage okay",
+        "I'm comfortable with it",
+      ]),
+    })
+    .optional(),
+  completionPercent: zod.number(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
  * @summary Update session answers
  */
 export const UpdateAnswersParams = zod.object({
@@ -146,17 +261,40 @@ export const UpdateAnswersResponse = zod.object({
   id: zod.string(),
   formId: zod.string(),
   formName: zod.string(),
+  countryCode: zod.string(),
   status: zod.enum(["in_progress", "completed", "abandoned"]),
   currentStep: zod.number(),
   totalSteps: zod.number(),
   answers: zod.record(zod.string(), zod.string()),
+  persona: zod
+    .object({
+      role: zod.enum([
+        "Student",
+        "Working Professional",
+        "Self-Employed",
+        "Senior Citizen",
+        "Unemployed",
+        "Other",
+      ]),
+      priorExperience: zod.enum([
+        "First time",
+        "Applied before but it was rejected",
+        "Applied before and got it",
+        "Not sure",
+      ]),
+      comfort: zod.enum([
+        "I find it confusing",
+        "I manage okay",
+        "I'm comfortable with it",
+      ]),
+    })
+    .optional(),
   completionPercent: zod.number(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
 
 /**
- * Returns mapped form fields from the user answers
  * @summary Get field preview
  */
 export const GetPreviewParams = zod.object({
@@ -182,7 +320,35 @@ export const GetPreviewResponse = zod.object({
 });
 
 /**
- * Returns warnings for missing, inconsistent, or risky answers
+ * @summary Get rejection risk score for a session
+ */
+export const GetRiskScoreParams = zod.object({
+  sessionId: zod.coerce.string(),
+});
+
+export const GetRiskScoreResponse = zod.object({
+  sessionId: zod.string(),
+  score: zod
+    .number()
+    .describe("Risk score 0-100. 0 = no risk (perfect). 100 = maximum risk."),
+  level: zod.enum(["low", "medium", "high"]),
+  headline: zod.string(),
+  factors: zod.array(
+    zod.object({
+      description: zod.string(),
+      impact: zod.number(),
+      category: zod.enum([
+        "missing_required",
+        "inconsistency",
+        "optional_blank",
+        "rejection_pattern",
+      ]),
+    }),
+  ),
+  disclaimer: zod.string(),
+});
+
+/**
  * @summary Get session warnings
  */
 export const GetWarningsParams = zod.object({
@@ -213,7 +379,6 @@ export const GetWarningsResponse = zod.object({
 });
 
 /**
- * Returns required documents and submission steps for the form
  * @summary Get document checklist
  */
 export const GetChecklistParams = zod.object({
@@ -230,6 +395,7 @@ export const GetChecklistResponse = zod.object({
       text: zod.string(),
       required: zod.boolean(),
       note: zod.string().optional(),
+      rejectionRisk: zod.boolean().optional(),
     }),
   ),
   submissionSteps: zod.array(
@@ -243,10 +409,10 @@ export const GetChecklistResponse = zod.object({
   processingTime: zod.string(),
   fee: zod.string(),
   warnings: zod.array(zod.string()),
+  disclaimer: zod.string(),
 });
 
 /**
- * Generates and returns a filled PDF for the session
  * @summary Generate filled PDF
  */
 export const GeneratePdfParams = zod.object({
@@ -262,7 +428,6 @@ export const GeneratePdfResponse = zod.object({
 });
 
 /**
- * Downloads the generated PDF file for a session
  * @summary Download generated PDF
  */
 export const DownloadPdfParams = zod.object({
@@ -270,7 +435,6 @@ export const DownloadPdfParams = zod.object({
 });
 
 /**
- * Uses AI to explain why a question is asked and how to answer it correctly
  * @summary Explain a form question in plain language
  */
 export const AiExplainBody = zod.object({
@@ -290,7 +454,6 @@ export const AiExplainResponse = zod.object({
 });
 
 /**
- * Uses AI to interpret ambiguous or free-text answers and normalize them to the expected format
  * @summary Interpret a natural-language answer
  */
 export const AiInterpretBody = zod.object({
@@ -308,4 +471,66 @@ export const AiInterpretResponse = zod.object({
   explanation: zod.string(),
   needsClarification: zod.boolean(),
   clarificationPrompt: zod.string().optional(),
+});
+
+/**
+ * @summary Simplify a form question for a user persona
+ */
+export const AiSimplifyBody = zod.object({
+  questionId: zod.string(),
+  questionText: zod.string(),
+  hint: zod.string().optional(),
+  officialLabel: zod.string(),
+  formName: zod.string(),
+  countryCode: zod.string(),
+  persona: zod
+    .object({
+      role: zod.enum([
+        "Student",
+        "Working Professional",
+        "Self-Employed",
+        "Senior Citizen",
+        "Unemployed",
+        "Other",
+      ]),
+      priorExperience: zod.enum([
+        "First time",
+        "Applied before but it was rejected",
+        "Applied before and got it",
+        "Not sure",
+      ]),
+      comfort: zod.enum([
+        "I find it confusing",
+        "I manage okay",
+        "I'm comfortable with it",
+      ]),
+    })
+    .optional(),
+});
+
+export const AiSimplifyResponse = zod.object({
+  questionId: zod.string(),
+  simplifiedText: zod.string(),
+  simplifiedHint: zod.string().optional(),
+});
+
+/**
+ * @summary Detect inconsistencies across all answers
+ */
+export const AiInconsistenciesBody = zod.object({
+  sessionId: zod.string(),
+  formId: zod.string(),
+  answers: zod.record(zod.string(), zod.string()),
+});
+
+export const AiInconsistenciesResponse = zod.object({
+  sessionId: zod.string(),
+  inconsistencies: zod.array(
+    zod.object({
+      fields: zod.array(zod.string()),
+      message: zod.string(),
+      severity: zod.enum(["error", "warning"]),
+    }),
+  ),
+  checkedAt: zod.coerce.date(),
 });

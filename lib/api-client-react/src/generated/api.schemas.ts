@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * QueueCutter API specification
- * OpenAPI spec version: 0.1.0
+ * OpenAPI spec version: 0.2.0
  */
 export interface HealthStatus {
   status: string;
@@ -14,8 +14,52 @@ export interface ErrorResponse {
   message: string;
 }
 
+export interface Country {
+  code: string;
+  name: string;
+  flag: string;
+  description: string;
+}
+
+export type PersonaRole = (typeof PersonaRole)[keyof typeof PersonaRole];
+
+export const PersonaRole = {
+  Student: "Student",
+  Working_Professional: "Working Professional",
+  "Self-Employed": "Self-Employed",
+  Senior_Citizen: "Senior Citizen",
+  Unemployed: "Unemployed",
+  Other: "Other",
+} as const;
+
+export type PersonaPriorExperience =
+  (typeof PersonaPriorExperience)[keyof typeof PersonaPriorExperience];
+
+export const PersonaPriorExperience = {
+  First_time: "First time",
+  Applied_before_but_it_was_rejected: "Applied before but it was rejected",
+  Applied_before_and_got_it: "Applied before and got it",
+  Not_sure: "Not sure",
+} as const;
+
+export type PersonaComfort =
+  (typeof PersonaComfort)[keyof typeof PersonaComfort];
+
+export const PersonaComfort = {
+  I_find_it_confusing: "I find it confusing",
+  I_manage_okay: "I manage okay",
+  "I'm_comfortable_with_it": "I'm comfortable with it",
+} as const;
+
+export interface Persona {
+  role: PersonaRole;
+  priorExperience: PersonaPriorExperience;
+  comfort: PersonaComfort;
+}
+
 export interface FormSummary {
   id: string;
+  countryCode: string;
   name: string;
   shortDescription: string;
   whoItIsFor: string;
@@ -46,16 +90,19 @@ export interface FormQuestion {
   id: string;
   text: string;
   hint?: string;
+  hintHi?: string;
   type: FormQuestionType;
   options?: string[];
   required: boolean;
   fieldMapping: string;
+  officialLabel: string;
   validationPattern?: string;
   conditionalOn?: FormQuestionConditionalOn;
 }
 
 export interface FormDetail {
   id: string;
+  countryCode: string;
   name: string;
   officialName: string;
   shortDescription: string;
@@ -63,8 +110,10 @@ export interface FormDetail {
   whoItIsFor: string;
   category: string;
   requiredDocuments: string[];
+  commonRejectionReasons: string[];
   questions: FormQuestion[];
   submissionOffice: string;
+  submissionMethod: string;
   processingTime: string;
   fee: string;
   disclaimer: string;
@@ -84,10 +133,12 @@ export interface Session {
   id: string;
   formId: string;
   formName: string;
+  countryCode: string;
   status: SessionStatus;
   currentStep: number;
   totalSteps: number;
   answers: SessionAnswers;
+  persona?: Persona;
   completionPercent: number;
   createdAt: string;
   updatedAt: string;
@@ -97,6 +148,7 @@ export interface SessionSummary {
   id: string;
   formId: string;
   formName: string;
+  countryCode: string;
   status: SessionStatus;
   completionPercent: number;
   createdAt: string;
@@ -105,6 +157,7 @@ export interface SessionSummary {
 
 export interface CreateSessionBody {
   formId: string;
+  countryCode?: string;
 }
 
 export type UpdateAnswersBodyAnswers = { [key: string]: string };
@@ -112,6 +165,41 @@ export type UpdateAnswersBodyAnswers = { [key: string]: string };
 export interface UpdateAnswersBody {
   answers: UpdateAnswersBodyAnswers;
   step: number;
+}
+
+export type RiskFactorCategory =
+  (typeof RiskFactorCategory)[keyof typeof RiskFactorCategory];
+
+export const RiskFactorCategory = {
+  missing_required: "missing_required",
+  inconsistency: "inconsistency",
+  optional_blank: "optional_blank",
+  rejection_pattern: "rejection_pattern",
+} as const;
+
+export interface RiskFactor {
+  description: string;
+  impact: number;
+  category: RiskFactorCategory;
+}
+
+export type RiskScoreResultLevel =
+  (typeof RiskScoreResultLevel)[keyof typeof RiskScoreResultLevel];
+
+export const RiskScoreResultLevel = {
+  low: "low",
+  medium: "medium",
+  high: "high",
+} as const;
+
+export interface RiskScoreResult {
+  sessionId: string;
+  /** Risk score 0-100. 0 = no risk (perfect). 100 = maximum risk. */
+  score: number;
+  level: RiskScoreResultLevel;
+  headline: string;
+  factors: RiskFactor[];
+  disclaimer: string;
 }
 
 export type MappedFieldSource =
@@ -202,6 +290,7 @@ export interface ChecklistItem {
   text: string;
   required: boolean;
   note?: string;
+  rejectionRisk?: boolean;
 }
 
 export interface SubmissionStep {
@@ -219,6 +308,7 @@ export interface ChecklistResult {
   processingTime: string;
   fee: string;
   warnings: string[];
+  disclaimer: string;
 }
 
 export interface PdfResult {
@@ -270,6 +360,61 @@ export interface AiInterpretResponse {
   needsClarification: boolean;
   clarificationPrompt?: string;
 }
+
+export interface AiSimplifyRequest {
+  questionId: string;
+  questionText: string;
+  hint?: string;
+  officialLabel: string;
+  formName: string;
+  countryCode: string;
+  persona?: Persona;
+}
+
+export interface AiSimplifyResponse {
+  questionId: string;
+  simplifiedText: string;
+  simplifiedHint?: string;
+}
+
+export type AiInconsistenciesRequestAnswers = { [key: string]: string };
+
+export interface AiInconsistenciesRequest {
+  sessionId: string;
+  formId: string;
+  answers: AiInconsistenciesRequestAnswers;
+}
+
+export type AiInconsistenciesResponseInconsistenciesItemSeverity =
+  (typeof AiInconsistenciesResponseInconsistenciesItemSeverity)[keyof typeof AiInconsistenciesResponseInconsistenciesItemSeverity];
+
+export const AiInconsistenciesResponseInconsistenciesItemSeverity = {
+  error: "error",
+  warning: "warning",
+} as const;
+
+export type AiInconsistenciesResponseInconsistenciesItem = {
+  fields: string[];
+  message: string;
+  severity: AiInconsistenciesResponseInconsistenciesItemSeverity;
+};
+
+export interface AiInconsistenciesResponse {
+  sessionId: string;
+  inconsistencies: AiInconsistenciesResponseInconsistenciesItem[];
+  checkedAt: string;
+}
+
+export type ListCountries200 = {
+  countries: Country[];
+};
+
+export type ListFormsParams = {
+  /**
+   * Filter forms by country code (US, IN, GB)
+   */
+  countryCode?: string;
+};
 
 export type ListForms200 = {
   forms: FormSummary[];

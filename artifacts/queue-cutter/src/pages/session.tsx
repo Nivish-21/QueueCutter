@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useLocation } from "wouter";
 import {
   useGetSession,
@@ -7,6 +7,7 @@ import {
   useAiExplain,
   useAiInterpret,
 } from "@workspace/api-client-react";
+import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -45,6 +46,12 @@ interface AiInterpretResult {
   clarificationPrompt?: string;
 }
 
+interface SimplifyResult {
+  questionId: string;
+  simplifiedText: string;
+  simplifiedHint: string | null;
+}
+
 export default function SessionInterview() {
   const params = useParams();
   const sessionId = params.sessionId!;
@@ -52,17 +59,28 @@ export default function SessionInterview() {
   const { toast } = useToast();
 
   const { data: session, isLoading: sessionLoading, refetch: refetchSession } = useGetSession(sessionId, {
-    query: { enabled: !!sessionId, queryKey: ["getSession", sessionId] }
+    query: { enabled: !!sessionId, queryKey: ["getSession", sessionId] },
   });
 
   const formId = session?.formId;
   const { data: form, isLoading: formLoading } = useGetForm(formId || "", {
-    query: { enabled: !!formId, queryKey: ["getForm", formId] }
+    query: { enabled: !!formId, queryKey: ["getForm", formId] },
   });
 
   const updateAnswers = useUpdateAnswers();
   const aiExplain = useAiExplain();
   const aiInterpret = useAiInterpret();
+
+  const aiSimplify = useMutation({
+    mutationFn: async (data: Record<string, unknown>) => {
+      const res = await fetch("/api/ai/simplify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      return res.json() as Promise<SimplifyResult>;
+    },
+  });
 
   const [currentValue, setCurrentValue] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
@@ -71,6 +89,11 @@ export default function SessionInterview() {
   const [explainResult, setExplainResult] = useState<AiExplainResult | null>(null);
   const [interpretResult, setInterpretResult] = useState<AiInterpretResult | null>(null);
   const [interpretedInput, setInterpretedInput] = useState<string>("");
+
+  const [showHindi, setShowHindi] = useState(false);
+  const [simplifiedText, setSimplifiedText] = useState<string | null>(null);
+  const [simplifiedHint, setSimplifiedHint] = useState<string | null>(null);
+  const simplifyCache = useRef<Map<string, SimplifyResult>>(new Map());
 
   useEffect(() => {
     if (session && form) {
@@ -81,15 +104,50 @@ export default function SessionInterview() {
       }
       const currentQuestion = questions[session.currentStep];
       if (currentQuestion) {
-        setCurrentValue(session.answers[currentQuestion.id] || "");
+        setCurrentValue((session.answers as Record<string, string>)[currentQuestion.id] || "");
         setError(null);
         setShowExplain(false);
         setExplainResult(null);
         setInterpretResult(null);
         setInterpretedInput("");
+        setSimplifiedText(null);
+        setSimplifiedHint(null);
+        setShowHindi(false);
+
+        const persona = session.persona as unknown as Record<string, string> | null;
+        const isConfused = persona?.comfort === "I find it confusing";
+        const isOkay = persona?.comfort === "I manage okay";
+
+        if ((isConfused || isOkay) && persona) {
+          const cached = simplifyCache.current.get(currentQuestion.id);
+          if (cached) {
+            setSimplifiedText(cached.simplifiedText);
+            setSimplifiedHint(cached.simplifiedHint);
+          } else {
+            aiSimplify.mutate(
+              {
+                questionId: currentQuestion.id,
+                questionText: currentQuestion.text,
+                hint: currentQuestion.hint,
+                officialLabel: currentQuestion.officialLabel,
+                formName: form.name,
+                countryCode: form.countryCode,
+                persona,
+              },
+              {
+                onSuccess: (result) => {
+                  simplifyCache.current.set(currentQuestion.id, result);
+                  setSimplifiedText(result.simplifiedText);
+                  setSimplifiedHint(result.simplifiedHint);
+                },
+              },
+            );
+          }
+        }
       }
     }
-  }, [session, form, setLocation, sessionId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.currentStep, form?.id]);
 
   if (sessionLoading || formLoading || !session || !form) {
     return (
@@ -116,16 +174,18 @@ export default function SessionInterview() {
   }
 
   const currentQuestion = questions[currentStep];
+  const answers = session.answers as Record<string, string>;
+  const isIndiaForm = form.countryCode === "IN";
+  const hasHindi = isIndiaForm && !!(currentQuestion as unknown as Record<string, unknown>).hintHi;
+  const hintHi = (currentQuestion as unknown as Record<string, unknown>).hintHi as string | undefined;
 
   if (currentQuestion.conditionalOn) {
-    const conditionMet = session.answers[currentQuestion.conditionalOn.questionId] === currentQuestion.conditionalOn.value;
+    const conditionMet = answers[currentQuestion.conditionalOn.questionId] === currentQuestion.conditionalOn.value;
     if (!conditionMet) {
-      updateAnswers.mutate({
-        sessionId,
-        data: { answers: session.answers, step: currentStep + 1 }
-      }, {
-        onSuccess: () => refetchSession()
-      });
+      updateAnswers.mutate(
+        { sessionId, data: { answers, step: currentStep + 1 } },
+        { onSuccess: () => refetchSession() },
+      );
       return (
         <div className="flex justify-center py-20">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -146,24 +206,22 @@ export default function SessionInterview() {
         return;
       }
     }
-    const newAnswers = { ...session.answers, [currentQuestion.id]: currentValue };
-    updateAnswers.mutate({
-      sessionId,
-      data: { answers: newAnswers, step: currentStep + 1 }
-    }, {
-      onSuccess: () => refetchSession(),
-      onError: () => toast({ title: "Error saving answer", variant: "destructive" })
-    });
+    const newAnswers = { ...answers, [currentQuestion.id]: currentValue };
+    updateAnswers.mutate(
+      { sessionId, data: { answers: newAnswers, step: currentStep + 1 } },
+      {
+        onSuccess: () => refetchSession(),
+        onError: () => toast({ title: "Error saving answer", variant: "destructive" }),
+      },
+    );
   };
 
   const handleBack = () => {
     if (currentStep > 0) {
-      updateAnswers.mutate({
-        sessionId,
-        data: { answers: session.answers, step: currentStep - 1 }
-      }, {
-        onSuccess: () => refetchSession()
-      });
+      updateAnswers.mutate(
+        { sessionId, data: { answers, step: currentStep - 1 } },
+        { onSuccess: () => refetchSession() },
+      );
     }
   };
 
@@ -174,18 +232,21 @@ export default function SessionInterview() {
     }
     setShowExplain(true);
     if (explainResult) return;
-    aiExplain.mutate({
-      data: {
-        questionId: currentQuestion.id,
-        questionText: currentQuestion.text,
-        hint: currentQuestion.hint,
-        formName: form.name,
-        officialLabel: currentQuestion.officialLabel,
-      }
-    }, {
-      onSuccess: (result) => setExplainResult(result),
-      onError: () => toast({ title: "Couldn't load explanation", variant: "destructive" })
-    });
+    aiExplain.mutate(
+      {
+        data: {
+          questionId: currentQuestion.id,
+          questionText: currentQuestion.text,
+          hint: currentQuestion.hint,
+          formName: form.name,
+          officialLabel: currentQuestion.officialLabel,
+        },
+      },
+      {
+        onSuccess: (result) => setExplainResult(result),
+        onError: () => toast({ title: "Couldn't load explanation", variant: "destructive" }),
+      },
+    );
   };
 
   const handleInterpret = () => {
@@ -194,23 +255,26 @@ export default function SessionInterview() {
       return;
     }
     setInterpretedInput(currentValue);
-    aiInterpret.mutate({
-      data: {
-        questionId: currentQuestion.id,
-        questionText: currentQuestion.text,
-        questionType: currentQuestion.type,
-        rawInput: currentValue,
-        options: currentQuestion.options,
-      }
-    }, {
-      onSuccess: (result) => {
-        setInterpretResult(result);
-        if (!result.needsClarification) {
-          setCurrentValue(result.interpretedValue);
-        }
+    aiInterpret.mutate(
+      {
+        data: {
+          questionId: currentQuestion.id,
+          questionText: currentQuestion.text,
+          questionType: currentQuestion.type,
+          rawInput: currentValue,
+          options: currentQuestion.options,
+        },
       },
-      onError: () => toast({ title: "Couldn't interpret answer", variant: "destructive" })
-    });
+      {
+        onSuccess: (result) => {
+          setInterpretResult(result);
+          if (!result.needsClarification) {
+            setCurrentValue(result.interpretedValue);
+          }
+        },
+        onError: () => toast({ title: "Couldn't interpret answer", variant: "destructive" }),
+      },
+    );
   };
 
   const handleAcceptInterpretation = () => {
@@ -225,14 +289,11 @@ export default function SessionInterview() {
     medium: "text-amber-600 dark:text-amber-400",
     low: "text-red-600 dark:text-red-400",
   };
-
-  const confidenceIcon = {
-    high: CheckCircle2,
-    medium: AlertCircle,
-    low: AlertCircle,
-  };
+  const confidenceIcon = { high: CheckCircle2, medium: AlertCircle, low: AlertCircle };
 
   const canInterpret = ["text", "number", "textarea"].includes(currentQuestion.type);
+  const displayText = simplifiedText || currentQuestion.text;
+  const displayHint = showHindi && hintHi ? hintHi : (simplifiedHint || currentQuestion.hint);
 
   const renderInput = () => {
     switch (currentQuestion.type) {
@@ -281,20 +342,8 @@ export default function SessionInterview() {
       case "yesno":
         return (
           <div className="grid grid-cols-2 gap-4">
-            <Button
-              variant={currentValue === "yes" ? "default" : "outline"}
-              className="h-16 text-lg border-2"
-              onClick={() => { setCurrentValue("yes"); setError(null); }}
-            >
-              Yes
-            </Button>
-            <Button
-              variant={currentValue === "no" ? "default" : "outline"}
-              className="h-16 text-lg border-2"
-              onClick={() => { setCurrentValue("no"); setError(null); }}
-            >
-              No
-            </Button>
+            <Button variant={currentValue === "yes" ? "default" : "outline"} className="h-16 text-lg border-2" onClick={() => { setCurrentValue("yes"); setError(null); }}>Yes</Button>
+            <Button variant={currentValue === "no" ? "default" : "outline"} className="h-16 text-lg border-2" onClick={() => { setCurrentValue("no"); setError(null); }}>No</Button>
           </div>
         );
       case "radio":
@@ -339,9 +388,22 @@ export default function SessionInterview() {
       <Card className="border-0 shadow-lg bg-card overflow-hidden">
         <CardHeader className="bg-primary/5 border-b border-primary/10 pb-8 pt-10 px-8">
           <div className="flex items-start justify-between gap-4">
-            <h2 className="text-3xl font-semibold text-foreground leading-tight flex-1">
-              {currentQuestion.text}
-            </h2>
+            <div className="flex-1 space-y-1">
+              {simplifiedText && simplifiedText !== currentQuestion.text && (
+                <div className="text-xs text-primary/70 flex items-center gap-1 mb-2">
+                  <Sparkles className="h-3 w-3" />
+                  <span>Simplified for you</span>
+                </div>
+              )}
+              <h2 className="text-3xl font-semibold text-foreground leading-tight">
+                {displayText}
+              </h2>
+              {simplifiedText && simplifiedText !== currentQuestion.text && (
+                <div className="text-xs text-muted-foreground mt-1">
+                  Official: <span className="font-mono">{currentQuestion.officialLabel}</span>
+                </div>
+              )}
+            </div>
             <Button
               variant="ghost"
               size="sm"
@@ -349,18 +411,39 @@ export default function SessionInterview() {
               onClick={handleExplain}
               disabled={aiExplain.isPending}
             >
-              {aiExplain.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <HelpCircle className="h-4 w-4" />
-              )}
+              {aiExplain.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <HelpCircle className="h-4 w-4" />}
               Help
             </Button>
           </div>
-          {currentQuestion.hint && (
-            <p className="text-lg text-muted-foreground mt-4 leading-relaxed">
-              {currentQuestion.hint}
-            </p>
+
+          {displayHint && (
+            <div className="flex items-center justify-between gap-2 mt-4">
+              <p className="text-lg text-muted-foreground leading-relaxed flex-1">
+                {displayHint}
+              </p>
+              {hasHindi && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="shrink-0 text-xs gap-1 text-muted-foreground"
+                  onClick={() => setShowHindi(!showHindi)}
+                >
+                  {showHindi ? "EN" : "हि"}
+                </Button>
+              )}
+            </div>
+          )}
+          {!displayHint && hasHindi && (
+            <div className="flex justify-end mt-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="shrink-0 text-xs gap-1 text-muted-foreground"
+                onClick={() => setShowHindi(!showHindi)}
+              >
+                {showHindi ? "🇺🇸 EN" : "🇮🇳 हि"}
+              </Button>
+            </div>
           )}
         </CardHeader>
 
@@ -426,11 +509,7 @@ export default function SessionInterview() {
                   onClick={handleInterpret}
                   disabled={aiInterpret.isPending || !currentValue.trim()}
                 >
-                  {aiInterpret.isPending ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Sparkles className="h-3.5 w-3.5" />
-                  )}
+                  {aiInterpret.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
                   {aiInterpret.isPending ? "Interpreting..." : "Clean up my answer with AI"}
                 </Button>
               </div>
