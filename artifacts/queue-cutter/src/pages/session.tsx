@@ -52,6 +52,15 @@ interface SimplifyResult {
   simplifiedHint: string | null;
 }
 
+function getValidationError(pattern: string, label: string): string {
+  if (pattern.includes("\\d{12}")) return "Must be exactly 12 digits (no spaces or dashes)";
+  if (pattern.includes("[A-Z]{2}\\d{6}[A-Z]")) return "Format: two letters, six digits, one letter — e.g. AB123456C";
+  if (pattern.includes("[6-9]\\d{9}")) return "Must be a valid 10-digit mobile number starting with 6, 7, 8, or 9";
+  if (pattern.includes("\\d{5}")) return "Must be a 5-digit ZIP code";
+  if (pattern.includes("\\d{10}")) return "Must be a valid 10-digit phone number (digits only)";
+  return `Please check the format for "${label}"`;
+}
+
 export default function SessionInterview() {
   const params = useParams();
   const sessionId = params.sessionId!;
@@ -84,6 +93,7 @@ export default function SessionInterview() {
 
   const [currentValue, setCurrentValue] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
+  const [showCompletion, setShowCompletion] = useState(false);
 
   const [showExplain, setShowExplain] = useState(false);
   const [explainResult, setExplainResult] = useState<AiExplainResult | null>(null);
@@ -96,12 +106,19 @@ export default function SessionInterview() {
   const simplifyCache = useRef<Map<string, SimplifyResult>>(new Map());
 
   useEffect(() => {
+    if (!session || !form) return undefined;
+    if (session.currentStep >= form.questions.length) {
+      setShowCompletion(true);
+      const timer = setTimeout(() => setLocation(`/session/${sessionId}/preview`), 2200);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, [session?.currentStep, form?.questions.length, sessionId, setLocation]);
+
+  useEffect(() => {
     if (session && form) {
       const questions = form.questions;
-      if (session.currentStep >= questions.length) {
-        setLocation(`/session/${sessionId}/preview`);
-        return;
-      }
+      if (session.currentStep >= questions.length) return;
       const currentQuestion = questions[session.currentStep];
       if (currentQuestion) {
         setCurrentValue((session.answers as Record<string, string>)[currentQuestion.id] || "");
@@ -169,8 +186,21 @@ export default function SessionInterview() {
   const questions = form.questions;
   const currentStep = session.currentStep;
 
-  if (currentStep >= questions.length) {
-    return null;
+  if (currentStep >= questions.length || showCompletion) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6 animate-in fade-in duration-700">
+        <CheckCircle2 className="h-20 w-20 text-green-500 animate-in zoom-in duration-500" />
+        <div className="text-center space-y-2">
+          <h2 className="text-3xl font-bold tracking-tight">All questions complete!</h2>
+          <p className="text-muted-foreground text-lg">Preparing your form review…</p>
+        </div>
+        <div className="flex gap-2 items-center">
+          <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "0ms" }} />
+          <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "150ms" }} />
+          <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "300ms" }} />
+        </div>
+      </div>
+    );
   }
 
   const currentQuestion = questions[currentStep];
@@ -202,7 +232,7 @@ export default function SessionInterview() {
     if (currentQuestion.validationPattern && currentValue) {
       const regex = new RegExp(currentQuestion.validationPattern);
       if (!regex.test(currentValue)) {
-        setError("Please enter a valid format.");
+        setError(getValidationError(currentQuestion.validationPattern, currentQuestion.officialLabel));
         return;
       }
     }
@@ -223,6 +253,17 @@ export default function SessionInterview() {
         { onSuccess: () => refetchSession() },
       );
     }
+  };
+
+  const handleJumpTo = (targetStep: number) => {
+    if (targetStep === currentStep) return;
+    const newAnswers = currentValue.trim()
+      ? { ...answers, [currentQuestion.id]: currentValue }
+      : answers;
+    updateAnswers.mutate(
+      { sessionId, data: { answers: newAnswers, step: targetStep } },
+      { onSuccess: () => refetchSession() },
+    );
   };
 
   const handleExplain = () => {
@@ -377,12 +418,38 @@ export default function SessionInterview() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 py-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="space-y-2">
+      <div className="space-y-3">
         <div className="flex justify-between text-sm font-medium text-muted-foreground">
           <span>Question {currentStep + 1} of {questions.length}</span>
           <span>{Math.round((currentStep / questions.length) * 100)}% completed</span>
         </div>
         <Progress value={(currentStep / questions.length) * 100} className="h-2" />
+
+        {/* Question navigator */}
+        <div className="flex gap-1 flex-wrap justify-center pt-1">
+          {questions.map((q, i) => {
+            const isAnswered = !!(answers[q.id] && (answers[q.id] as string).trim());
+            const isCurrent = i === currentStep;
+            return (
+              <button
+                key={i}
+                onClick={() => handleJumpTo(i)}
+                disabled={updateAnswers.isPending}
+                title={`${i + 1}. ${q.officialLabel}`}
+                aria-label={`Go to question ${i + 1}: ${q.officialLabel}`}
+                className={`w-6 h-6 rounded-full text-[10px] font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-primary/40 ${
+                  isCurrent
+                    ? "bg-primary text-primary-foreground ring-2 ring-primary/30 scale-110"
+                    : isAnswered
+                      ? "bg-green-500 text-white hover:scale-110 cursor-pointer"
+                      : "bg-muted text-muted-foreground/40 cursor-default"
+                }`}
+              >
+                {i + 1}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <Card className="border-0 shadow-lg bg-card overflow-hidden">

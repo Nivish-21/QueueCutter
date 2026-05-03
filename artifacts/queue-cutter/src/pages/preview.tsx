@@ -5,7 +5,7 @@ import { useGetPreview, useGetWarnings } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertTriangle, CheckCircle2, FileText, ChevronRight, AlertCircle, Info, BarChart3, SplitSquareHorizontal } from "lucide-react";
+import { AlertTriangle, CheckCircle2, FileText, ChevronLeft, ChevronRight, AlertCircle, Info, BarChart3, SplitSquareHorizontal } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 
@@ -111,6 +111,12 @@ export default function SessionPreview() {
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">
+          <Link href={`/session/${sessionId}`}>
+            <Button variant="outline" size="lg" className="h-12 px-5 gap-2">
+              <ChevronLeft className="h-4 w-4" />
+              Edit Answers
+            </Button>
+          </Link>
           <Link href={`/session/${sessionId}/compare`}>
             <Button variant="outline" size="lg" className="h-12 px-5 gap-2">
               <SplitSquareHorizontal className="h-4 w-4" />

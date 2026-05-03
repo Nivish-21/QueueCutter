@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { randomUUID } from "crypto";
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { db, sessionsTable } from "@workspace/db";
 import { getFormById, FORMS } from "../lib/forms.js";
 import { generateWarnings } from "../lib/warnings.js";
@@ -18,7 +18,7 @@ router.get("/", async (req, res) => {
   const sessions = await db
     .select()
     .from(sessionsTable)
-    .orderBy(sessionsTable.updatedAt)
+    .orderBy(desc(sessionsTable.updatedAt))
     .limit(20);
   res.json({ sessions });
 });
@@ -131,7 +131,7 @@ router.put("/:sessionId/answers", async (req, res) => {
     (answeredRequired.length / Math.max(requiredQuestions.length, 1)) * 100,
   );
 
-  const isLastStep = step >= form.questions.length - 1;
+  const isLastStep = step >= form.questions.length;
   const status = isLastStep ? "completed" : "in_progress";
 
   const [updated] = await db
@@ -368,6 +368,49 @@ router.get("/:sessionId/pdf/download", async (req, res) => {
   );
   res.setHeader("Content-Length", pdfBuffer.length);
   res.end(pdfBuffer);
+});
+
+// DELETE /api/sessions/:sessionId
+router.delete("/:sessionId", async (req, res) => {
+  const [session] = await db
+    .select()
+    .from(sessionsTable)
+    .where(eq(sessionsTable.id, req.params.sessionId));
+
+  if (!session) {
+    res.status(404).json({ error: "not_found", message: "Session not found" });
+    return;
+  }
+
+  await db.delete(sessionsTable).where(eq(sessionsTable.id, req.params.sessionId));
+  res.status(204).end();
+});
+
+// PATCH /api/sessions/:sessionId/status
+router.patch("/:sessionId/status", async (req, res) => {
+  const [session] = await db
+    .select()
+    .from(sessionsTable)
+    .where(eq(sessionsTable.id, req.params.sessionId));
+
+  if (!session) {
+    res.status(404).json({ error: "not_found", message: "Session not found" });
+    return;
+  }
+
+  const { status } = req.body as { status: "in_progress" | "completed" | "abandoned" };
+  if (!["in_progress", "completed", "abandoned"].includes(status)) {
+    res.status(400).json({ error: "bad_request", message: "Invalid status value" });
+    return;
+  }
+
+  const [updated] = await db
+    .update(sessionsTable)
+    .set({ status, updatedAt: new Date() })
+    .where(eq(sessionsTable.id, req.params.sessionId))
+    .returning();
+
+  res.json(updated);
 });
 
 export default router;

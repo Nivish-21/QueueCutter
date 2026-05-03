@@ -8,7 +8,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, Download, MapPin, DollarSign, Clock, AlertTriangle, ExternalLink } from "lucide-react";
+import { ChevronLeft, Download, MapPin, DollarSign, Clock, AlertTriangle, ExternalLink, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function SessionChecklist() {
@@ -294,6 +294,14 @@ export default function SessionChecklist() {
                   </Button>
                 </Link>
               )}
+              <Button
+                variant="outline"
+                className="w-full gap-2"
+                onClick={() => window.print()}
+              >
+                <Printer className="h-4 w-4" />
+                Print Checklist
+              </Button>
               <Link href="/" className="w-full">
                 <Button variant="outline" className="w-full">Return Home</Button>
               </Link>

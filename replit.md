@@ -107,11 +107,28 @@ QueueCutter is an AI paperwork copilot for government forms. It turns confusing 
 ### Database (`lib/db/`)
 - `sessions` table: id, form_id, form_name, **country_code**, status, current_step, total_steps, answers (jsonb), **persona (jsonb)**, completion_percent
 
+## Production Quality Upgrades (May 2026)
+
+### Session Management
+- **DELETE /api/sessions/:id** — fully removes a session (204); UI shows trash button with AlertDialog confirmation
+- **PATCH /api/sessions/:id/status** — lets client explicitly set `in_progress | completed | abandoned`
+- **Completed sessions** shown on home page for 7 days after completion with "View" + "Review" buttons; trash button works on them too
+- **Sessions list ordering** fixed to DESC by `updatedAt` (newest first)
+- **isLastStep bug fix**: was `step >= length - 1` (marked complete one step early), now `step >= length`
+
+### Session Interview UX
+- **Question navigator**: row of numbered dots at top (green = answered, blue = current, gray = unanswered); clicking any answered dot jumps to that question via `handleJumpTo`
+- **Completion overlay**: "All questions complete!" screen with bouncing dots auto-redirects to preview after 2.2s
+- **Field-specific validation errors**: Aadhaar 12-digit, NI format AB123456C, Indian mobile 10-digit, ZIP 5-digit — instead of generic "Please enter a valid format"
+- **Edit Answers button** on preview page — navigates back to session interview
+- **Print Checklist button** on checklist page — calls `window.print()`
+
 ## Key Commands
 
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
+- `pnpm --filter @workspace/scripts run smoke-test` — full end-to-end API smoke test (session lifecycle, risk score, PDF, delete)
 
 ## AI Endpoints
 
