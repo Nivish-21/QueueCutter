@@ -8,7 +8,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, Download, MapPin, DollarSign, Clock, AlertTriangle } from "lucide-react";
+import { ChevronLeft, Download, MapPin, DollarSign, Clock, AlertTriangle, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function SessionChecklist() {
@@ -286,6 +286,14 @@ export default function SessionChecklist() {
               </div>
             </CardContent>
             <CardFooter className="pt-0 flex flex-col gap-2">
+              {nextItems.some((i) => i.id === "next_escalation_guide") && (
+                <Link href={`/session/${sessionId}/escalation`} className="w-full">
+                  <Button variant="outline" className="w-full text-amber-700 border-amber-300 hover:bg-amber-50 dark:text-amber-400 dark:border-amber-800 dark:hover:bg-amber-950/30 gap-2">
+                    <ExternalLink className="h-4 w-4" />
+                    Escalation Guide
+                  </Button>
+                </Link>
+              )}
               <Link href="/" className="w-full">
                 <Button variant="outline" className="w-full">Return Home</Button>
               </Link>

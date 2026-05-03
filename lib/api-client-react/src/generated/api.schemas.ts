@@ -183,6 +183,15 @@ export interface RiskFactor {
   category: RiskFactorCategory;
 }
 
+export interface ScoreComponent {
+  name: string;
+  /** 0-100, higher = more submission-ready */
+  score: number;
+  label: string;
+  explanation: string;
+  improvement?: string;
+}
+
 export type RiskScoreResultLevel =
   (typeof RiskScoreResultLevel)[keyof typeof RiskScoreResultLevel];
 
@@ -199,6 +208,7 @@ export interface RiskScoreResult {
   level: RiskScoreResultLevel;
   headline: string;
   factors: RiskFactor[];
+  components: ScoreComponent[];
   disclaimer: string;
 }
 

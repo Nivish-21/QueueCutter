@@ -253,6 +253,16 @@ export function generateChecklist(
     });
   }
 
+  if (form.countryCode === "IN") {
+    items.push({
+      id: "next_escalation_guide",
+      category: "do_next",
+      text: "Save the escalation guide in case your application is delayed beyond the statutory window (7–30 days)",
+      required: false,
+      note: "If your certificate is not issued within the required time, you have rights under the Right to Services Act and the RTI Act, 2005. An escalation guide is available in your QueueCutter session.",
+    });
+  }
+
   const submissionSteps = getSubmissionSteps(form, answers, persona);
   const disclaimer = getDisclaimer(form);
 
@@ -275,12 +285,12 @@ function isHighRejectionRiskDoc(doc: string, countryCode: string): boolean {
 
 function getDisclaimer(form: FormSchema): string {
   if (form.countryCode === "IN") {
-    return "Requirements may vary by state and district. Always verify the latest documents required with your local Tehsil/SDM office or Common Service Centre before visiting.";
+    return "Requirements may vary by state and district. QueueCutter provides document preparation support only — not legal or administrative advice. Always verify current requirements with your local Tehsil/SDM office or Common Service Centre before visiting. Eligibility and issuance are determined solely by the relevant government authority.";
   }
   if (form.countryCode === "GB") {
-    return "Council Tax Reduction schemes vary by local authority. Requirements may have changed. Check with your local council or gov.uk before submitting.";
+    return "Council Tax Reduction schemes vary by local authority and are subject to change. QueueCutter provides document preparation support only — not legal, benefits, or financial advice. Check with your local council or gov.uk to confirm current eligibility rules before submitting.";
   }
-  return "Requirements may vary. Check with your local office before visiting. QueueCutter is not affiliated with any government agency.";
+  return "Requirements may vary. QueueCutter provides document preparation support only — not legal or benefits advice. Always check with your local office before submitting. QueueCutter is not affiliated with any government agency.";
 }
 
 function getSubmissionSteps(

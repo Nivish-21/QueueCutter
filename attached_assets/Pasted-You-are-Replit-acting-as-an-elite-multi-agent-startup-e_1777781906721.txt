@@ -1,0 +1,807 @@
+You are Replit, acting as an elite multi-agent startup execution system.
+
+Your role is NOT to give advice.
+Your role is to:
+1. audit the product brutally,
+2. compare it to real-world standards,
+3. identify what is weak, missing, risky, or non-differentiated,
+4. redesign the product into a stronger version,
+5. implement the improvements in parallel,
+6. test everything,
+7. keep fixing until the system is fully working.
+
+DO NOT STOP until everything is working.
+DO NOT return partial completion.
+CONTINUE fixing errors until resolved.
+DO NOT declare success unless the full system is validated end-to-end.
+
+==================================================
+SYSTEM MANDATE
+==================================================
+
+You are simultaneously acting as:
+- full engineering team
+- product leadership team
+- compliance-aware AI systems team
+- QA team
+- observability/debugging team
+- trust and safety review layer
+
+Your default behavior:
+- challenge assumptions
+- avoid demo-ware
+- prefer operational reality over pitch-deck polish
+- optimize for user trust, completion rate, rejection reduction, and defensibility
+- treat high-stakes paperwork as a regulated-adjacent workflow domain
+
+==================================================
+PRODUCT CONTEXT
+==================================================
+
+Product name: QueueCutter
+
+Category:
+AI-powered government paperwork assistant / guided form completion platform / submission-readiness workflow system
+
+Core idea:
+QueueCutter helps people complete confusing government forms through a guided conversational flow, simplifying language, reducing rejection risk, and generating a cleaner draft plus document checklist before office submission.
+
+Current product build:
+- Country selector for USA, India, UK
+- Forms currently supported:
+  - USA: SNAP Benefits, Social Security Card Replacement, Change of Address
+  - India: Income Certificate, Domicile/Residence Certificate
+  - UK: Council Tax Reduction, Proof of Address for Benefits
+- Persona profiling before form start:
+  - first timer?
+  - previously rejected?
+  - finds paperwork confusing?
+- Guided interview:
+  - one question per screen
+  - Hindi hint toggle for India forms
+  - AI rewrites questions into simpler language if confusion is detected
+- AI copilot:
+  - “what does this mean?”
+  - plain-English explanation
+  - clean up user free-text into correct format
+- Rejection risk score:
+  - 0–100 gauge
+  - explains likely rejection reasons
+- Personalized document checklist:
+  - what to carry
+  - what to verify
+  - next steps
+  - rejection risk badges
+- Before/after demo:
+  - raw government form vs filled version
+  - timer showing time saved
+- PDF export:
+  - formatted draft document for submission
+- Existing stack:
+  - React frontend
+  - Express API
+  - PostgreSQL session storage
+  - OpenAI-backed AI features
+  - shared session data powers all features
+
+Assume this exists already.
+You must audit this current state, improve it, and implement the upgraded version.
+
+==================================================
+REAL-WORLD CONTEXT YOU MUST USE
+==================================================
+
+Use these as strategic and product constraints:
+
+1. MARKET REALITY
+- Government paperwork is not just a form-filling problem; it is a trust, interpretation, eligibility, documentation, and rejection-prevention problem.
+- QueueCutter should not compete as a generic “AI assistant.”
+- It must compete as a “submission readiness and case preparation layer” for difficult public workflows.
+
+2. COMPETITOR REALITY
+- Propel / Providers is a serious adjacent benchmark in SNAP. It serves millions of SNAP households and has user value beyond forms through EBT balance checking, suspicious activity alerts, and fraud-related utility.
+- DoNotPay is a cautionary benchmark: broad “Swiss Army Knife” positioning plus “Robot Lawyer” branding created trust, compliance, and credibility backlash.
+- Diia is a benchmark for unified citizen-facing government workflow infrastructure and shows the value of consolidating fragmented public-service tasks into a single trusted system.
+
+3. COMPLIANCE REALITY
+- Unauthorized Practice of Law (UPL) risk is real. QueueCutter must be framed as workflow facilitation, drafting assistance, evidence organization, and official-form preparation — NOT legal advice or legal representation.
+- AI-generated inferences may be regulated as personal information.
+- Security, explainability, accessibility, and auditability are not optional extras.
+
+4. PRODUCT REALITY
+- Demo features are not enough.
+- Trust, source verification, explanation traceability, edge-case handling, and failure recovery are required for real adoption.
+- If the app cannot cope with unstable government systems, low-literacy users, or contradictory documents, it fails in production.
+
+==================================================
+PHASE 1 — PLAN MODE (MANDATORY)
+==================================================
+
+Break the product into:
+
+1. Core functionality
+2. Current strengths
+3. Current weaknesses
+4. Missing features
+5. User types
+6. Industry category
+7. Buyer/user segments
+8. Competitor categories
+9. Trust/risk constraints
+10. What “good” looks like in this category
+11. What “great” looks like in this category
+
+Also identify:
+- the sharpest wedge use case
+- the least differentiated parts of the current product
+- the most defensible future layers
+- which parts create true operational value vs pitch value
+
+Be specific.
+No generic startup language.
+
+==================================================
+PHASE 2 — MULTI-AGENT COUNCIL
+==================================================
+
+Activate these agents in parallel and produce structured findings from each:
+
+BUSINESS + MARKET
+- CEO Agent → vision, moat, positioning, strategic direction
+- CMO Agent → user demand, messaging clarity, acquisition hooks
+- CFO Agent → monetization, CAC realism, revenue model, pricing
+- SME Owner Agent → practical usefulness for an ordinary citizen user
+- Marketing Manager Agent → real funnel clarity, conversion levers, trust messaging
+- Data Analyst Agent → instrumentation, funnel visibility, cohort analysis, abandonment points
+- Business Analyst Agent → workflow logic, operational gaps, fulfillment model, process bottlenecks
+
+MARKET INTELLIGENCE
+- Competitor Analyst → Propel, DoNotPay, local agents, cyber cafes, legal aid orgs, benefits navigators, digital citizen apps
+- Reddit Signal Agent → likely user frustrations, confusion patterns, distrust triggers, abandonment reasons
+- Trend Analyst → AI workflow agents, govtech modernization, document intelligence, citizen-service infrastructure
+- Industry Analyst → trust, accessibility, safety, liability, public-sector UX expectations
+
+PRODUCT + TECH
+- Product Manager Agent → feature logic, prioritization, user journey, feature pruning
+- UX Agent → cognitive load, trust, explainability, low-literacy flow design, clarity of next step
+- System Architect Agent → platform structure, resilience, maintainability, shared state architecture
+- API Architect Agent → service boundaries, integrations, official data access, orchestration patterns
+- Data Architect Agent → case model, document graph, identity graph, audit logs, rejection pattern learning
+
+RISK + FAILURE
+- Failure Mode Agent → what breaks, why it breaks, blast radius, fallback behavior
+- Edge Case Agent → incomplete documents, conflicting names, unsupported fields, portal instability, unusual family situations
+- Skeptic Agent → attack the product’s claims, defensibility, trustworthiness, and actual need
+
+All agents must produce concrete observations.
+No filler.
+No repetition.
+
+==================================================
+PHASE 3 — REAL-WORLD VALIDATION
+==================================================
+
+You MUST answer explicitly:
+
+1. Would a real user actually use this instead of asking a local agent, friend, cyber cafe, NGO helper, or government office worker?
+2. Does this solve a painful enough problem?
+3. Which users feel the pain most intensely?
+4. What would frustrate users in the current build?
+5. Why would users trust or distrust it?
+6. Why would they switch from current behavior?
+7. What would make them abandon midway?
+8. Which parts feel impressive in a demo but weak in production?
+9. Which features create repeat value vs one-time novelty?
+10. Is this best built as consumer, B2B2C, embedded civic-tech infrastructure, or hybrid?
+
+Answer with brutal honesty.
+
+==================================================
+PHASE 4 — CRITICAL MARKET + LEGAL FACTORS
+==================================================
+
+You must explicitly incorporate these factors into the audit and redesign:
+
+A. LEGAL HELP GAP
+- Treat legal/paperwork access as a severe unmet-need market.
+- Use the framing that many low-income people receive insufficient help for civil legal and administrative problems.
+- Translate this into product implications: low trust, low comprehension, high rejection risk, high need for guided support.
+
+B. UK COUNCIL TAX REDUCTION COMPLEXITY
+- Council Tax Reduction rules vary across local authorities.
+- Working-age applicants face stricter rules than pension-age applicants.
+- Current QueueCutter build is incomplete if it does not separate these rule paths.
+
+C. INDIA CERTIFICATE FAILURE REALITY
+- Treat state-portal rejections, delays, and repeat visits as common enough to matter.
+- Build around portal instability, evidence mismatch, and escalation paths.
+
+D. PUBLIC-SECTOR DIGITAL SPENDING TREND
+- Treat public-sector AI/cloud modernization as a tailwind.
+- Evaluate whether QueueCutter can evolve into infrastructure, not just an app.
+
+E. PROPULSIVE COMPETITOR SIGNAL
+- Propel’s traction proves users will adopt workflow tools if they deliver repeated utility, alerts, and ongoing value, not just one-time form completion.
+
+==================================================
+PHASE 5 — LEGAL / COMPLIANCE / GOVERNANCE FRAMEWORK
+==================================================
+
+You must design QueueCutter with explicit compliance-aware framing.
+
+A. UPL RISK STRATEGY
+- Explicitly distinguish between:
+  - legal advice
+  - administrative guidance
+  - workflow facilitation
+  - document preparation support
+- Recommend language and UX copy that avoids unauthorized-practice-of-law risk.
+- Replace “advice” framing with “official-form facilitation,” “submission readiness,” and “evidence preparation.”
+- Add professional review triggers for high-risk situations.
+
+B. PRIVACY / DATA RIGHTS
+Use these concepts:
+- AI-generated inferences may qualify as personal information.
+- Users should be able to view, access, and correct inferred scores, including rejection risk and eligibility inferences.
+- Build explainability and correction mechanisms into the UI.
+
+C. SECURITY REQUIREMENTS
+Design with controls inspired by GDPR Article 32:
+- encryption / pseudonymization where appropriate
+- confidentiality, integrity, availability, resilience
+- rapid restoration after incidents
+- regular testing and evaluation of security controls
+
+D. PROFESSIONAL OVERSIGHT PHILOSOPHY
+Use the spirit of professional oversight:
+- AI work in sensitive domains must be supervised, reviewed, or escalation-aware
+- not every case should remain fully automated
+- define human-in-the-loop triggers
+
+E. ACCESSIBILITY AS LEGAL REQUIREMENT
+- For UK public-service workflows, treat accessibility compliance as a legal-grade requirement, not a “nice to have.”
+- Build to WCAG 2.2 AA standards.
+- Design for low literacy, disability access, screen readers, reduced motion, keyboard nav, and assistive compatibility.
+
+F. INDIA ESCALATION RIGHTS
+- If a certificate is not issued within the statutory window, QueueCutter should support escalation logic such as appeal / RTI-style next-step guidance.
+- Include statutory-timer awareness.
+
+G. AI LIABILITY PRECEDENT
+- Explicitly evaluate product risk under emerging AI advice liability theories.
+- Build a trust layer that reduces overclaiming, enforces explanation traces, and flags uncertain outputs for review.
+
+==================================================
+PHASE 6 — DOMAIN-SPECIFIC PRODUCT LOGIC
+==================================================
+
+Design domain intelligence, not just generic form UX.
+
+A. SNAP-SPECIFIC DOMAIN LOGIC
+Include:
+- countable income logic, including deductions
+- household composition logic
+- dependent status
+- work requirement logic such as ABAWD-style conditions
+- fraud / anomaly support ideas such as out-of-state transaction alerting or suspicious activity guidance
+- recertification and status continuity opportunities
+- proof-checking for income, housing, utilities, childcare, identity
+
+B. INDIA CERTIFICATE LOGIC
+Include:
+- domicile / residence proof hierarchy
+- income certificate evidence rules
+- state-specific differences
+- Aadhaar-related mismatch or authentication failure as a rejection cause
+- escalation logic when status remains pending too long
+- physical submission fallback if portals are unstable
+
+C. UK BENEFITS / CTR LOGIC
+Include:
+- working-age vs pension-age path separation
+- household composition edge cases
+- adult child / student-status household changes
+- local authority rule variation
+- proof-of-address evidence ranking
+- council-specific content and GDS-aligned UX patterns
+
+==================================================
+PHASE 7 — OCR / DOCUMENT INTELLIGENCE STRATEGY
+==================================================
+
+Design a real OCR architecture, not vague “upload and parse.”
+
+Required comparison matrix:
+- Tesseract → open-source, offline, multilingual, privacy-preserving
+- Google Document AI → strong for handwriting and complex docs
+- Amazon Textract → key-value extraction and tables
+- Mindee / Lido-like structured extraction tools → clean JSON for standard documents
+
+You must:
+1. create an OCR selection matrix
+2. define a champion-challenger OCR strategy
+3. propose confidence thresholds
+4. define escalation logic
+
+Required baseline strategy:
+- Tesseract-first for local/private processing of sensitive IDs where possible
+- If OCR confidence < 0.85, pseudonymize where possible and escalate to a higher-accuracy cloud OCR provider
+- Route by document type:
+  - affidavits / handwritten or irregular docs → high-accuracy OCR
+  - pay slips / income tables → table/key-value extraction
+  - standard IDs / receipts → structured extraction
+
+Also include:
+- field-level confidence scores
+- user confirmation loops
+- mismatch detection between OCR output and form answers
+- audit logs of extraction and correction
+
+==================================================
+PHASE 8 — API / INTEGRATION STRATEGY
+==================================================
+
+Design concrete integration plans.
+
+A. INDIA
+Evaluate:
+- API Setu
+- DigiLocker-style document access
+- PAN / education / identity verification pathways
+- UMANG ecosystem relevance
+- e-District portal variations by state
+- how to reduce scraping where APIs exist
+
+B. PORTAL AUTOMATION
+If official APIs do not exist, define automation strategy:
+- prefer Playwright over Puppeteer
+- explain why: stronger auto-waiting, network interception, lower flakiness
+- define anti-fragility patterns for unstable portals
+- define safe interaction practices
+- if portal automation is risky or blocked, switch to fallback generation mode instead of retrying forever
+
+C. FALLBACK MODE
+Design a hybrid-failsafe pattern:
+- if portal is unstable or bot-protected,
+  - generate physical-ready PDF
+  - produce office submission checklist
+  - create mailing / visit instructions
+  - preserve all entered state for later retry
+
+==================================================
+PHASE 9 — PROBABILISTIC RISK / APPROVAL MODEL
+==================================================
+
+Design a mathematical backbone for rejection risk and approval readiness.
+
+You must:
+1. critique the current generic 0–100 risk score
+2. replace it with an explainable scoring model
+3. separate:
+   - completion score
+   - consistency score
+   - evidence sufficiency score
+   - eligibility confidence score
+   - portal-readiness score
+4. output a final composite submission-readiness score
+
+Incorporate this style of logic:
+- weighted document completeness
+- mandatory-vs-optional evidence weighting
+- income/eligibility threshold logic
+- contradiction penalties
+- known rejection-pattern penalties
+- confidence penalties for inferred or weakly supported answers
+
+You may use a formula framework such as:
+Approval readiness is a function of:
+- weighted correctly submitted evidence
+- total required evidence
+- threshold eligibility checks
+- conflict penalties
+- uncertainty penalties
+
+For every score:
+- show why it was assigned
+- show what would improve it
+- store the inference lineage
+- allow user correction
+
+==================================================
+PHASE 10 — IDENTITY GRAPH / CASE GRAPH
+==================================================
+
+Design a Palantir-style unification layer.
+
+Required:
+A. IDENTITY GRAPH
+- deterministic matching via strong identifiers when available
+- probabilistic matching across names, addresses, dependent records, and documents
+- detect “Jon Doe” vs “Jonathan Doe” type mismatches
+- propose a Senzing-inspired entity resolution architecture
+- target very high duplicate resolution quality
+
+B. CASE GRAPH
+Unify:
+- user profile
+- household members
+- document inventory
+- form answers
+- evidence gaps
+- risk explanations
+- office submission steps
+- follow-up timeline
+- appeals / escalations
+
+C. DATA LINEAGE
+Build Foundry-style lineage tracking:
+- log every user-entered field
+- every AI rewrite
+- every OCR extraction
+- every validation step
+- every score transformation
+- every generated document output
+
+This is not just ops tooling.
+This is:
+- user trust tooling
+- regulator/investigator readiness
+- FTC / EDPB / complaint defense posture
+- “right to explanation” infrastructure
+
+==================================================
+PHASE 11 — ETHICS / SAFETY / HUMAN OVERSIGHT
+==================================================
+
+Design a formal governance layer.
+
+Include:
+- professional review flag on every AI-generated document
+- human-in-the-loop triggers for high-stakes cases
+- explicit escalation triggers for uncertainty, conflict, or legal sensitivity
+- red-teaming of prompts and domain outputs
+- policy checks against overclaiming
+- bounded-output patterns
+- official-source citation requirements in explanations
+- “home organization” / NGO-partner architecture where partner orgs can retain operational data ownership inside QueueCutter infrastructure
+
+High-risk trigger examples:
+- criminal-history-sensitive public benefits issue
+- contradictory identity evidence
+- no strong proof of residence
+- immigration-sensitive fields
+- appeal or adverse-decision workflows
+- user asks legal-strategy questions beyond administrative preparation
+
+==================================================
+PHASE 12 — AUTOMATION FAILURE MITIGATION
+==================================================
+
+Assume automation will fail sometimes.
+
+You must explicitly design for:
+- broken government portals
+- changing form versions
+- OCR failure
+- AI hallucinated rewrite
+- unstable sessions
+- unsupported edge cases
+- inaccessible official sites
+- partial submission attempts
+
+Build a “hybrid-failsafe” architecture:
+- if automation fails, degrade gracefully
+- never trap the user in retry loops
+- preserve work
+- switch to alternate channel:
+  - printable packet
+  - mailing instructions
+  - office visit prep
+  - escalation workflow
+  - save-and-resume later retry
+
+Also address:
+- risk of automating broken processes
+- need for narrow goals, specific measurement, and human override
+
+==================================================
+PHASE 13 — UPGRADE DESIGN
+==================================================
+
+Design a stronger version of QueueCutter across:
+
+A. PRODUCT STRATEGY
+- sharpen target user
+- sharpen wedge use case
+- define moat
+- define trust promise
+- reduce generic AI-assistant positioning
+- map pathway from app to infrastructure layer
+
+B. FEATURE SET
+Include concrete upgrades such as:
+- smart eligibility pre-check before form start
+- dynamic branching
+- save and resume
+- OCR import
+- answer autofill
+- family/dependent workflows
+- multilingual expansion
+- confidence indicators
+- evidence sufficiency detector
+- office readiness mode
+- submission channel chooser
+- post-submission tracking
+- appeal / escalation assistance
+- form-version verification
+- human review lane
+- accessibility mode
+- voice-guided mode
+- WhatsApp / SMS continuation
+- official-source-linked explanations
+- audit trail viewer
+- identity vault / case vault
+
+C. PALANTIR-STYLE UNIFICATION
+Design:
+- centralized case-readiness score
+- timeline of evidence completeness
+- office-specific guidance
+- document-to-form consistency checker
+- case graph explorer
+- explanation layer for every inference
+
+D. WORKFLOW REDESIGN
+Redesign:
+landing page → country → eligibility precheck → form selection → intake → document import → guided Q&A → validation → score review → checklist → draft packet → submission path decision → follow-up / escalation
+
+E. TRUST DESIGN
+Include:
+- official source citation
+- explanation trace
+- confidence labels
+- correction controls
+- privacy reassurance
+- human review option
+- compliance-safe wording
+
+F. MONETIZATION
+Propose realistic models:
+- freemium consumer
+- pay-per-case
+- premium guided review
+- NGO/legal-aid/community-center partnerships
+- employer/benefits navigation
+- insurer / fintech / benefits partner integrations
+- public-sector modernization contracts
+- B2B2C infrastructure licensing
+
+==================================================
+PHASE 14 — IMPLEMENTATION BLUEPRINT
+==================================================
+
+Create:
+1. revised product architecture
+2. revised data model
+3. service boundaries
+4. API contracts
+5. AI prompt architecture
+6. risk scoring engine design
+7. OCR pipeline design
+8. checklist engine design
+9. identity graph design
+10. lineage/audit model
+11. analytics event model
+12. admin CMS for forms/rules/content
+13. localization model
+14. security/privacy controls
+15. fallback orchestration layer
+16. rollout plan
+
+==================================================
+PHASE 15 — 15 PARALLEL EXECUTION TRACKS
+==================================================
+
+Now define 15 parallel workstreams.
+
+Track 1 — Core flow architecture refactor
+Track 2 — Eligibility and branching engine
+Track 3 — Official form knowledge base and source verification
+Track 4 — AI copilot and simplification engine v2
+Track 5 — Explainable submission-readiness / rejection-risk engine
+Track 6 — Document checklist and evidence sufficiency engine
+Track 7 — OCR / upload / parsing pipeline
+Track 8 — Identity graph and case graph
+Track 9 — UX redesign for low-confidence / low-literacy users
+Track 10 — Multilingual, voice, and accessibility layer
+Track 11 — Save/resume, case vault, and follow-up tracking
+Track 12 — Admin CMS and operations console
+Track 13 — Security, privacy, consent, auditability, and rights tooling
+Track 14 — Automated testing, simulations, and red-team harness
+Track 15 — Final integration, failure recovery, performance hardening, and launch validation
+
+For each track include:
+- objective
+- tasks
+- dependencies
+- failure risks
+- done criteria
+
+==================================================
+PHASE 16 — BUILD LOOP
+==================================================
+
+For EACH feature or track:
+1. implement
+2. run unit tests
+3. run integration tests
+4. run simulation tests
+5. inspect failures
+6. identify root cause
+7. patch only the broken parts unless architecture refactor is required
+8. re-test
+9. validate UX behavior
+10. validate trust/compliance behavior
+11. continue until stable
+
+Rules:
+- DO NOT stop at partial implementation
+- DO NOT skip tests
+- DO NOT leave TODOs as fake completion
+- DO NOT silently ignore edge cases
+- DO NOT claim “done” if explanations, confidence, or audit logs are missing
+- if architecture is blocking progress, refactor decisively
+- preserve backward compatibility where practical
+
+==================================================
+PHASE 17 — TESTING + VALIDATION LAYERS
+==================================================
+
+Validate across all of the following:
+
+A. UNIT TESTS
+- branching logic
+- eligibility logic
+- risk scoring
+- checklist generation
+- OCR confidence routing
+- identity resolution
+- field normalization
+- localization rendering
+- save/resume logic
+- lineage logging
+
+B. INTEGRATION TESTS
+- frontend ↔ backend ↔ database
+- shared session/case state
+- OCR pipeline
+- AI explanation flow
+- PDF generation
+- document import
+- score explanations
+- admin CMS publishing
+- source versioning
+- analytics logging
+
+C. REAL-WORLD SIMULATIONS
+Simulate:
+- first-time applicant
+- previously rejected applicant
+- low-literacy applicant
+- Indian user needing Hindi support
+- user with missing document proof
+- user with conflicting address evidence
+- user with OCR extraction mismatch
+- user with unsupported edge case
+- working-age CTR applicant
+- pension-age CTR applicant
+- SNAP applicant with deductions
+- SNAP applicant with work-rule issue
+- user who abandons midway and resumes later
+- portal-down scenario
+- physical-submission fallback scenario
+- escalation / appeal scenario
+
+D. UX VALIDATION
+Check:
+- clarity of next step
+- trust messaging
+- explanation readability
+- mobile usability
+- accessibility compliance
+- frustration recovery
+- cognitive load
+- perceived speed
+
+E. FAILURE TESTS
+Check:
+- outdated form source
+- missing fields
+- contradictory answers
+- bad OCR text
+- unsupported household structure
+- AI hallucinated simplification
+- API timeout
+- PDF failure
+- duplicate entity mismatch
+- partial DB write
+- broken resume state
+- portal anti-bot failure
+
+==================================================
+PHASE 18 — COMPLETION RULE
+==================================================
+
+You may ONLY stop when:
+- there are no unresolved blocking errors
+- all critical tracks are implemented
+- all major tests pass
+- the system works end-to-end
+- the UX is coherent for high-friction users
+- the trust layer is visible and real
+- accessibility and explanation layers exist
+- failure fallbacks exist
+- the upgraded product is materially stronger than the starting version
+
+==================================================
+OUTPUT FORMAT
+==================================================
+
+Return your work in this exact order:
+
+1. PRODUCT AUDIT SUMMARY
+- what is good
+- what is broken
+- what looks impressive but is weak underneath
+
+2. KEY INSIGHTS
+- market
+- user
+- product
+- trust
+- monetization
+- legal/compliance
+- defensibility
+
+3. REAL-WORLD VALIDATION
+Answer the 10 required questions directly.
+
+4. CRITICAL GAPS
+Use severity labels P0 / P1 / P2
+
+5. UPGRADE PLAN
+- strategy
+- feature upgrades
+- workflow redesign
+- trust/governance design
+- monetization
+
+6. IMPLEMENTATION BLUEPRINT
+- architecture
+- data
+- APIs
+- AI systems
+- OCR systems
+- identity graph
+- security/privacy
+- analytics
+- rollout
+
+7. 15 EXECUTION TRACKS
+Detailed and actionable.
+
+8. MASTER BUILD ORDER
+Dependency-aware execution order.
+
+9. FINAL EXECUTION LOOP
+Implementation/testing/self-correction loop.
+
+10. LAUNCH READINESS CHECKLIST
+Concrete go-live criteria.
+
+FINAL RULE:
+Be specific, skeptical, implementation-oriented, and hard to impress.
+Do not give generic startup advice.
+Do not hide behind vague compliance language.
+Do not optimize for pitch-deck polish.
+Optimize for real user outcomes, trust, completion, and rejection reduction.

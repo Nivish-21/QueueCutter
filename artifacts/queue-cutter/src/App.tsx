@@ -8,12 +8,14 @@ import { Layout } from "@/components/layout";
 import Home from "@/pages/home";
 import Catalog from "@/pages/catalog";
 import FormDetail from "@/pages/form-detail";
+import EligibilityPage from "@/pages/eligibility";
 import PersonaPage from "@/pages/persona";
 import SessionInterview from "@/pages/session";
 import SessionPreview from "@/pages/preview";
 import SessionCompare from "@/pages/compare";
 import SessionChecklist from "@/pages/checklist";
 import SessionWarnings from "@/pages/warnings";
+import EscalationPage from "@/pages/escalation";
 
 const queryClient = new QueryClient();
 
@@ -23,12 +25,14 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/catalog/:countryCode" component={Catalog} />
       <Route path="/forms/:formId" component={FormDetail} />
+      <Route path="/eligibility/:sessionId" component={EligibilityPage} />
       <Route path="/persona/:sessionId" component={PersonaPage} />
       <Route path="/session/:sessionId" component={SessionInterview} />
       <Route path="/session/:sessionId/preview" component={SessionPreview} />
       <Route path="/session/:sessionId/compare" component={SessionCompare} />
       <Route path="/session/:sessionId/checklist" component={SessionChecklist} />
       <Route path="/session/:sessionId/warnings" component={SessionWarnings} />
+      <Route path="/session/:sessionId/escalation" component={EscalationPage} />
       <Route component={NotFound} />
     </Switch>
   );

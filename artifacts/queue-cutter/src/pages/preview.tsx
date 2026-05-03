@@ -15,12 +15,21 @@ interface RiskFactor {
   category: string;
 }
 
+interface ScoreComponent {
+  name: string;
+  score: number;
+  label: string;
+  explanation: string;
+  improvement?: string;
+}
+
 interface RiskScoreResult {
   sessionId: string;
   score: number;
   level: "low" | "medium" | "high";
   headline: string;
   factors: RiskFactor[];
+  components: ScoreComponent[];
   disclaimer: string;
 }
 
@@ -162,29 +171,29 @@ export default function SessionPreview() {
             </CardContent>
           </Card>
 
-          {/* Rejection Risk Score */}
+          {/* Submission Readiness Score */}
           {riskLoading ? (
             <Card>
               <CardHeader className="pb-2"><Skeleton className="h-5 w-3/4" /></CardHeader>
-              <CardContent><Skeleton className="h-24 w-full" /></CardContent>
+              <CardContent><Skeleton className="h-32 w-full" /></CardContent>
             </Card>
           ) : riskScore ? (
             <Card className={`border ${riskBg}`}>
               <CardHeader className="pb-3">
                 <div className="flex items-center gap-2">
                   <BarChart3 className={`h-4 w-4 ${riskTextColor}`} />
-                  <CardTitle className={`text-sm font-medium ${riskTextColor}`}>Rejection Risk</CardTitle>
+                  <CardTitle className={`text-sm font-medium ${riskTextColor}`}>Submission Readiness</CardTitle>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-3">
-                {/* Gauge */}
+              <CardContent className="space-y-4">
+                {/* Overall gauge */}
                 <div className="space-y-1">
                   <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>Safe</span>
-                    <span className={`font-bold text-sm ${riskTextColor}`}>{riskScore.score}/100</span>
+                    <span>Ready</span>
+                    <span className={`font-bold text-sm ${riskTextColor}`}>{riskScore.score}/100 risk</span>
                     <span>High risk</span>
                   </div>
-                  <div className="h-3 bg-muted rounded-full overflow-hidden">
+                  <div className="h-2.5 bg-muted rounded-full overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all duration-700 ${riskColor}`}
                       style={{ width: `${riskScore.score}%` }}
@@ -196,19 +205,29 @@ export default function SessionPreview() {
                   {riskScore.headline}
                 </p>
 
-                {riskScore.factors.length > 0 && (
-                  <div className="space-y-1.5">
-                    {riskScore.factors.slice(0, 4).map((f, i) => (
-                      <div key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
-                        <span className={`shrink-0 mt-0.5 ${riskTextColor}`}>•</span>
-                        <span className="leading-snug">{f.description}</span>
+                {/* 5-component breakdown */}
+                {riskScore.components && riskScore.components.length > 0 && (
+                  <div className="space-y-3 border-t border-border/30 pt-3">
+                    {riskScore.components.map((c) => (
+                      <div key={c.name} className="space-y-1">
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs font-medium text-foreground">{c.name}</span>
+                          <span className={`text-xs font-bold ${c.score >= 70 ? "text-green-600 dark:text-green-400" : c.score >= 40 ? "text-amber-600 dark:text-amber-400" : "text-red-600 dark:text-red-400"}`}>
+                            {c.score}%
+                          </span>
+                        </div>
+                        <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${c.score >= 70 ? "bg-green-500" : c.score >= 40 ? "bg-amber-500" : "bg-red-500"}`}
+                            style={{ width: `${c.score}%` }}
+                          />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground leading-snug">{c.label}</p>
+                        {c.improvement && (
+                          <p className="text-[10px] text-amber-700 dark:text-amber-400 leading-snug italic">{c.improvement}</p>
+                        )}
                       </div>
                     ))}
-                    {riskScore.factors.length > 4 && (
-                      <p className="text-xs text-muted-foreground pl-3">
-                        +{riskScore.factors.length - 4} more issues
-                      </p>
-                    )}
                   </div>
                 )}
 

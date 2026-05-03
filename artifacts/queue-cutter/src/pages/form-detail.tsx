@@ -24,7 +24,7 @@ export default function FormDetail() {
       { data: { formId } },
       {
         onSuccess: (session) => {
-          setLocation(`/persona/${session.id}`);
+          setLocation(`/eligibility/${session.id}`);
         },
         onError: () => {
           toast({

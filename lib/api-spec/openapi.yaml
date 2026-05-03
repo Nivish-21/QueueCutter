@@ -697,6 +697,22 @@ components:
           enum: [missing_required, inconsistency, optional_blank, rejection_pattern]
       required: [description, impact, category]
 
+    ScoreComponent:
+      type: object
+      properties:
+        name:
+          type: string
+        score:
+          type: integer
+          description: "0-100, higher = more submission-ready"
+        label:
+          type: string
+        explanation:
+          type: string
+        improvement:
+          type: string
+      required: [name, score, label, explanation]
+
     RiskScoreResult:
       type: object
       properties:
@@ -714,9 +730,13 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/RiskFactor"
+        components:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScoreComponent"
         disclaimer:
           type: string
-      required: [sessionId, score, level, headline, factors, disclaimer]
+      required: [sessionId, score, level, headline, factors, components, disclaimer]
 
     MappedField:
       type: object

@@ -345,6 +345,15 @@ export const GetRiskScoreResponse = zod.object({
       ]),
     }),
   ),
+  components: zod.array(
+    zod.object({
+      name: zod.string(),
+      score: zod.number().describe("0-100, higher = more submission-ready"),
+      label: zod.string(),
+      explanation: zod.string(),
+      improvement: zod.string().optional(),
+    }),
+  ),
   disclaimer: zod.string(),
 });
 
