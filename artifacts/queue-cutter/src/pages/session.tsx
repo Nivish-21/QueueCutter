@@ -6,6 +6,7 @@ import {
   useUpdateAnswers,
   useAiExplain,
   useAiInterpret,
+  useListSessions,
 } from "@workspace/api-client-react";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Info,
+  ClipboardCopy,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -79,6 +81,22 @@ export default function SessionInterview() {
   const updateAnswers = useUpdateAnswers();
   const aiExplain = useAiExplain();
   const aiInterpret = useAiInterpret();
+
+  const { data: sessionsData } = useListSessions({
+    query: { queryKey: ["listSessions"], staleTime: 30000 },
+  });
+
+  const [autofillSourceId, setAutofillSourceId] = useState<string | null>(null);
+  const [autofillApplied, setAutofillApplied] = useState(false);
+  const [autofillDismissed, setAutofillDismissed] = useState(() => {
+    try { return localStorage.getItem(`qc_af_${sessionId}`) === "1"; } catch { return false; }
+  });
+  const { data: autofillSessionData } = useGetSession(autofillSourceId ?? "", {
+    query: { enabled: !!autofillSourceId, queryKey: ["getSession", autofillSourceId] },
+  });
+  const autofillSource = autofillSourceId && autofillSessionData
+    ? (autofillSessionData.answers as Record<string, string>)
+    : null;
 
   const aiSimplify = useMutation({
     mutationFn: async (data: Record<string, unknown>) => {
@@ -165,6 +183,17 @@ export default function SessionInterview() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.currentStep, form?.id]);
+
+  useEffect(() => {
+    if (!session || !sessionsData?.sessions || autofillDismissed || autofillApplied) return;
+    if (session.currentStep !== 0) return;
+    const currentAnswers = session.answers as Record<string, string>;
+    if (Object.keys(currentAnswers).length > 0) return;
+    const source = sessionsData.sessions.find(
+      (s) => s.formId === session.formId && s.status === "completed" && s.id !== session.id,
+    );
+    if (source) setAutofillSourceId(source.id);
+  }, [session?.id, session?.formId, session?.currentStep, sessionsData?.sessions, autofillDismissed, autofillApplied]);
 
   if (sessionLoading || formLoading || !session || !form) {
     return (
@@ -451,6 +480,67 @@ export default function SessionInterview() {
           })}
         </div>
       </div>
+
+      {autofillSource && !autofillDismissed && (
+        <div className="flex items-start gap-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl px-4 py-3 animate-in fade-in slide-in-from-top-2 duration-500">
+          <ClipboardCopy className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0 space-y-2">
+            <div>
+              <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">Previous answers found</p>
+              <p className="text-xs text-blue-700 dark:text-blue-300 mt-0.5">
+                Copy {Object.keys(autofillSource).length} answers from your last {form.name} — you can review and edit each one before submitting.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white gap-1"
+                disabled={updateAnswers.isPending}
+                onClick={() => {
+                  updateAnswers.mutate(
+                    { sessionId, data: { answers: autofillSource, step: 0 } },
+                    {
+                      onSuccess: () => {
+                        setAutofillApplied(true);
+                        setAutofillSourceId(null);
+                        refetchSession();
+                        toast({ title: "Answers copied — review each question and edit as needed." });
+                      },
+                    },
+                  );
+                }}
+              >
+                {updateAnswers.isPending
+                  ? <Loader2 className="h-3 w-3 animate-spin" />
+                  : <ClipboardCopy className="h-3 w-3" />}
+                Copy previous answers
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/30"
+                onClick={() => {
+                  setAutofillDismissed(true);
+                  setAutofillSourceId(null);
+                  try { localStorage.setItem(`qc_af_${sessionId}`, "1"); } catch { /* ignore */ }
+                }}
+              >
+                Start fresh
+              </Button>
+            </div>
+          </div>
+          <button
+            className="shrink-0 text-blue-400 hover:text-blue-600 dark:text-blue-500 dark:hover:text-blue-300 transition-colors"
+            onClick={() => {
+              setAutofillDismissed(true);
+              setAutofillSourceId(null);
+              try { localStorage.setItem(`qc_af_${sessionId}`, "1"); } catch { /* ignore */ }
+            }}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       <Card className="border-0 shadow-lg bg-card overflow-hidden">
         <CardHeader className="bg-primary/5 border-b border-primary/10 pb-8 pt-10 px-8">
