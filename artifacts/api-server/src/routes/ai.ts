@@ -265,4 +265,67 @@ If no inconsistencies, return: {"inconsistencies": []}`;
   });
 });
 
+// POST /api/ai/discover — match a free-text situation to the best form
+router.post("/discover", async (req, res) => {
+  const { situation } = req.body as { situation?: string };
+
+  if (!situation || typeof situation !== "string" || !situation.trim()) {
+    res.status(400).json({ error: "bad_request", message: "situation is required" });
+    return;
+  }
+
+  const catalog = [
+    { id: "snap-benefits", name: "SNAP Benefits Application", countryCode: "US", whoItIsFor: "Low-income individuals and families needing food assistance", description: "Apply for monthly food assistance benefits through the Supplemental Nutrition Assistance Program" },
+    { id: "ss5-replacement", name: "Social Security Card Replacement", countryCode: "US", whoItIsFor: "U.S. citizens and eligible non-citizens who need to replace their Social Security card", description: "Request a replacement Social Security card when yours is lost, stolen, or damaged" },
+    { id: "change-of-address", name: "Change of Address Request", countryCode: "US", whoItIsFor: "Anyone who has moved or is planning to move to a new address", description: "Notify USPS to forward your mail to your new address" },
+    { id: "income-certificate-in", name: "Income Certificate", countryCode: "IN", whoItIsFor: "Individuals needing proof of income for government schemes, education, or subsidies", description: "Obtain an official income certificate from state authorities for benefits and admissions" },
+    { id: "domicile-certificate-in", name: "Domicile / Residence Certificate", countryCode: "IN", whoItIsFor: "Individuals who are permanent residents of a state and need to prove domicile for government benefits", description: "Get a certificate proving you are a permanent resident of your state for jobs, admissions, or benefits" },
+    { id: "council-tax-reduction-gb", name: "Council Tax Reduction Application", countryCode: "GB", whoItIsFor: "Residents on low income, receiving Universal Credit, or eligible benefits who need help paying Council Tax", description: "Apply for a reduction in your Council Tax bill from your local council" },
+    { id: "proof-of-address-gb", name: "Proof of Address Letter for Benefits", countryCode: "GB", whoItIsFor: "Anyone applying for UK benefits who needs to formally confirm their residential address", description: "Obtain an official proof-of-address letter for use with DWP or other benefit applications" },
+  ];
+
+  const catalogText = catalog
+    .map((f) => `- id: "${f.id}" | name: "${f.name}" | country: ${f.countryCode} | for: ${f.whoItIsFor} | description: ${f.description}`)
+    .join("\n");
+
+  const prompt = `You are helping a user find the right government form for their situation.
+
+Available forms:
+${catalogText}
+
+User's situation: "${situation.trim()}"
+
+Pick the single best matching form. If no form is a reasonable match, return null for formId.
+
+Respond with ONLY a JSON object, no other text:
+{
+  "formId": "the form id from the list, or null if nothing matches",
+  "formName": "the form name, or null",
+  "countryCode": "US, IN, or GB, or null",
+  "reason": "one sentence explaining why this form matches (or why nothing matched)"
+}`;
+
+  let parsed: Record<string, unknown> = {};
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-5-mini",
+      max_completion_tokens: 512,
+      messages: [{ role: "user", content: prompt }],
+    });
+    const raw = completion.choices[0]?.message?.content ?? "";
+    parsed = extractJson(raw);
+  } catch (err) {
+    req.log?.warn({ err }, "AI discover call failed");
+  }
+
+  const formId = typeof parsed.formId === "string" ? parsed.formId : null;
+  const validIds = catalog.map((f) => f.id);
+  res.json({
+    formId: formId && validIds.includes(formId) ? formId : null,
+    formName: typeof parsed.formName === "string" ? parsed.formName : null,
+    countryCode: typeof parsed.countryCode === "string" ? parsed.countryCode : null,
+    reason: typeof parsed.reason === "string" ? parsed.reason : "We could not find a matching form for your situation.",
+  });
+});
+
 export default router;

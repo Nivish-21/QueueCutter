@@ -18,7 +18,7 @@ export default function Catalog() {
   const country = COUNTRY_INFO[countryCode] || { name: countryCode, flag: "🌐" };
 
   const { data, isLoading, isError } = useListForms();
-  const forms = data?.forms.filter((f) => f.countryCode === countryCode) ?? [];
+  const forms = data?.forms?.filter((f) => f.countryCode === countryCode) ?? [];
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">

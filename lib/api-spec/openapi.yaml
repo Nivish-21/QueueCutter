@@ -460,6 +460,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/AiInconsistenciesResponse"
 
+  /ai/discover:
+    post:
+      operationId: aiDiscover
+      tags: [ai]
+      summary: Discover the right form from a free-text situation description
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiDiscoverRequest"
+      responses:
+        "200":
+          description: Form discovery result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiDiscoverResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -1020,3 +1039,29 @@ components:
           type: string
           format: date-time
       required: [sessionId, inconsistencies, checkedAt]
+
+    AiDiscoverRequest:
+      type: object
+      properties:
+        situation:
+          type: string
+          description: Free-text description of the user's situation
+      required: [situation]
+
+    AiDiscoverResponse:
+      type: object
+      properties:
+        formId:
+          type: string
+          nullable: true
+          description: The matched form ID, or null if no match
+        formName:
+          type: string
+          nullable: true
+        countryCode:
+          type: string
+          nullable: true
+        reason:
+          type: string
+          description: Explanation of why this form was matched (or why nothing matched)
+      required: [formId, formName, countryCode, reason]

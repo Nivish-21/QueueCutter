@@ -543,3 +543,26 @@ export const AiInconsistenciesResponse = zod.object({
   ),
   checkedAt: zod.coerce.date(),
 });
+
+/**
+ * @summary Discover the right form from a free-text situation description
+ */
+export const AiDiscoverBody = zod.object({
+  situation: zod
+    .string()
+    .describe("Free-text description of the user's situation"),
+});
+
+export const AiDiscoverResponse = zod.object({
+  formId: zod
+    .string()
+    .nullable()
+    .describe("The matched form ID, or null if no match"),
+  formName: zod.string().nullable(),
+  countryCode: zod.string().nullable(),
+  reason: zod
+    .string()
+    .describe(
+      "Explanation of why this form was matched (or why nothing matched)",
+    ),
+});

@@ -66,6 +66,9 @@ export default defineConfig({
     fs: {
       strict: true,
     },
+    proxy: process.env.VITE_API_PROXY_TARGET
+      ? { "/api": { target: process.env.VITE_API_PROXY_TARGET, changeOrigin: true } }
+      : undefined,
   },
   preview: {
     port,

@@ -17,6 +17,8 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  AiDiscoverRequest,
+  AiDiscoverResponse,
   AiExplainRequest,
   AiExplainResponse,
   AiInconsistenciesRequest,
@@ -1659,4 +1661,90 @@ export const useAiInconsistencies = <
   TContext
 > => {
   return useMutation(getAiInconsistenciesMutationOptions(options));
+};
+
+/**
+ * @summary Discover the right form from a free-text situation description
+ */
+export const getAiDiscoverUrl = () => {
+  return `/api/ai/discover`;
+};
+
+export const aiDiscover = async (
+  aiDiscoverRequest: AiDiscoverRequest,
+  options?: RequestInit,
+): Promise<AiDiscoverResponse> => {
+  return customFetch<AiDiscoverResponse>(getAiDiscoverUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(aiDiscoverRequest),
+  });
+};
+
+export const getAiDiscoverMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof aiDiscover>>,
+    TError,
+    { data: BodyType<AiDiscoverRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof aiDiscover>>,
+  TError,
+  { data: BodyType<AiDiscoverRequest> },
+  TContext
+> => {
+  const mutationKey = ["aiDiscover"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof aiDiscover>>,
+    { data: BodyType<AiDiscoverRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return aiDiscover(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AiDiscoverMutationResult = NonNullable<
+  Awaited<ReturnType<typeof aiDiscover>>
+>;
+export type AiDiscoverMutationBody = BodyType<AiDiscoverRequest>;
+export type AiDiscoverMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Discover the right form from a free-text situation description
+ */
+export const useAiDiscover = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof aiDiscover>>,
+    TError,
+    { data: BodyType<AiDiscoverRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof aiDiscover>>,
+  TError,
+  { data: BodyType<AiDiscoverRequest> },
+  TContext
+> => {
+  return useMutation(getAiDiscoverMutationOptions(options));
 };

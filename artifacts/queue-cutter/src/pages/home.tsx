@@ -1,5 +1,5 @@
-import React from "react";
-import { Link } from "wouter";
+import React, { useState } from "react";
+import { Link, useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -15,7 +15,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { ChevronRight, Clock, PlayCircle, CheckCircle2, Trash2, Eye } from "lucide-react";
+import { ChevronRight, Clock, PlayCircle, CheckCircle2, Trash2, Eye, Search, Loader2 } from "lucide-react";
 import { useListSessions } from "@workspace/api-client-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -60,9 +60,42 @@ function formatRelativeTime(dateStr: string): string {
   return `${days}d ago`;
 }
 
+interface DiscoverResult {
+  formId: string | null;
+  formName: string | null;
+  countryCode: string | null;
+  reason: string;
+}
+
 export default function Home() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
+
+  const [situation, setSituation] = useState("");
+  const [discoverResult, setDiscoverResult] = useState<DiscoverResult | null>(null);
+
+  const discoverMutation = useMutation({
+    mutationFn: async (text: string): Promise<DiscoverResult> => {
+      const res = await fetch("/api/ai/discover", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ situation: text }),
+      });
+      if (!res.ok) throw new Error("Discovery failed");
+      return res.json() as Promise<DiscoverResult>;
+    },
+    onSuccess: (result) => {
+      if (result.formId) {
+        navigate(`/forms/${result.formId}`);
+      } else {
+        setDiscoverResult(result);
+      }
+    },
+    onError: () => {
+      toast({ title: "Could not find a matching form", variant: "destructive" });
+    },
+  });
 
   const { data: sessionsData } = useListSessions({
     query: { queryKey: ["listSessions"], staleTime: 15000 },
@@ -257,6 +290,59 @@ export default function Home() {
           )}
         </section>
       )}
+
+      <section className="max-w-2xl mx-auto w-full">
+        <Card className="border-primary/20 bg-gradient-to-br from-primary/3 to-primary/5">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <Search className="h-5 w-5 text-primary" />
+              <CardTitle className="text-lg">Not sure which form you need?</CardTitle>
+            </div>
+            <CardDescription>
+              Describe your situation and we'll find the right form for you.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <textarea
+              className="w-full min-h-[80px] resize-none rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              placeholder="e.g. I moved to a new apartment and need to update my mailing address, or I need food assistance for my family…"
+              value={situation}
+              onChange={(e) => {
+                setSituation(e.target.value);
+                if (discoverResult) setDiscoverResult(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey && situation.trim()) {
+                  e.preventDefault();
+                  discoverMutation.mutate(situation.trim());
+                }
+              }}
+            />
+            {discoverResult && !discoverResult.formId && (
+              <p className="text-sm text-muted-foreground bg-muted/50 rounded-md px-3 py-2">
+                {discoverResult.reason} Browse by country below to explore all available forms.
+              </p>
+            )}
+            <Button
+              className="w-full gap-2"
+              disabled={!situation.trim() || discoverMutation.isPending}
+              onClick={() => discoverMutation.mutate(situation.trim())}
+            >
+              {discoverMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Finding the right form…
+                </>
+              ) : (
+                <>
+                  <Search className="h-4 w-4" />
+                  Find my form
+                </>
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+      </section>
 
       <section className="space-y-6">
         <h2 className="text-2xl font-semibold tracking-tight text-center">Choose your country</h2>

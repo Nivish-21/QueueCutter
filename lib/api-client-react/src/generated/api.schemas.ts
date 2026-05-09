@@ -415,6 +415,20 @@ export interface AiInconsistenciesResponse {
   checkedAt: string;
 }
 
+export interface AiDiscoverRequest {
+  /** Free-text description of the user's situation */
+  situation: string;
+}
+
+export interface AiDiscoverResponse {
+  /** The matched form ID, or null if no match */
+  formId: string | null;
+  formName: string | null;
+  countryCode: string | null;
+  /** Explanation of why this form was matched (or why nothing matched) */
+  reason: string;
+}
+
 export type ListCountries200 = {
   countries: Country[];
 };
